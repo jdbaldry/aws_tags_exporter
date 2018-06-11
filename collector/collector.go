@@ -18,8 +18,8 @@ var (
 
 var AvailableCollectors = map[string]func(registry prometheus.Registerer, Region *string) error{
 	"elb": RegisterELBCollector,
-	"rds": RegisterRDSCollector,
-	"elasticsearchservice": RegisterESCollector,
+//	"rds": RegisterRDSCollector,
+//	"elasticsearchservice": RegisterESCollector,
 }
 
 type Collector interface {
