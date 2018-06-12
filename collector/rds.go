@@ -24,13 +24,19 @@ type rdsCollector struct {
   store rdsStore
 }
 
-type rdsStore interface {
-  List() (rdsInstances []*rds.DBInstance, rdsTags [][]*rds.Tag, err error)
+// rdsList contains ordered arrays of database instances and tag lists
+type rdsList struct {
+  instances []*rds.DBInstance
+  tags      [][]*rds.Tag
 }
 
-type rdsLister func() ([]*rds.DBInstance, [][]*rds.Tag, error)
+type rdsStore interface {
+  List() (rdsList, error)
+}
 
-func (l rdsLister) List() ([]*rds.DBInstance, [][]*rds.Tag, error) {
+type rdsLister func() (rdsList, error)
+
+func (l rdsLister) List() (rdsList, error) {
 	return l()
 }
 
@@ -39,7 +45,8 @@ func RegisterRDSCollector(registry prometheus.Registerer, region *string) error 
 		Region: aws.String(*region)},
 	))
 
-	lister := rdsLister(func() (rdsInstances []*rds.DBInstance, rdsTags [][]*rds.Tag, err error) {
+	lister := rdsLister(func() (rl rdsList, err error) {
+    var rdsTags [][]*rds.Tag
     dbInput := &rds.DescribeDBInstancesInput{}
 		result, err := rdsSession.DescribeDBInstances(dbInput)
     for _, dbi := range result.DBInstances {
@@ -48,11 +55,12 @@ func RegisterRDSCollector(registry prometheus.Registerer, region *string) error 
       }
       result, err := rdsSession.ListTagsForResource(ltInput)
       if err != nil {
-        return nil, nil, err
+        return rl, err
       }
       rdsTags = append(rdsTags, result.TagList)
     }
-    return result.DBInstances, rdsTags, nil
+    rl = rdsList{instances: result.DBInstances, tags: rdsTags}
+    return
 	})
 
 	registry.MustRegister(&rdsCollector{store: lister})
@@ -76,13 +84,13 @@ func (rc *rdsCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements the prometheus.Collector interface.
 func (rc *rdsCollector) Collect(ch chan<- prometheus.Metric) {
   glog.V(4).Infof("Collecting RDS instance tags")
-  rdsInstances, rdsTags, err := rc.store.List()
+  rdsList, err := rc.store.List()
   if err != nil {
     glog.Errorf("Error listing RDS instances: ", err)
   }
 
-  for i, instance := range rdsInstances {
-    rc.collectRDS(ch, instance, rdsTags[i])
+  for i, instance := range rdsList.instances {
+    rc.collectRDS(ch, instance, rdsList.tags[i])
   }
 }
 
