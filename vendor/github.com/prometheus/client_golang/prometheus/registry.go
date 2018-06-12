@@ -410,8 +410,8 @@ func (r *Registry) MustRegister(cs ...Collector) {
 func (r *Registry) Gather() ([]*dto.MetricFamily, error) {
 	var (
 		metricChan        = make(chan Metric, capMetricChan)
-		metricHashes      = map[uint64]struct{}{}
-		dimHashes         = map[string]uint64{}
+		// metricHashes      = map[uint64]struct{}{}
+		// dimHashes         = map[string]uint64{}
 		wg                sync.WaitGroup
 		errs              MultiError          // The collected errors to return in the end.
 		registeredDescIDs map[uint64]struct{} // Only used for pedantic checks
@@ -542,10 +542,10 @@ func (r *Registry) Gather() ([]*dto.MetricFamily, error) {
 			}
 			metricFamiliesByName[desc.fqName] = metricFamily
 		}
-		if err := checkMetricConsistency(metricFamily, dtoMetric, metricHashes, dimHashes); err != nil {
-			errs = append(errs, err)
-			continue
-		}
+		// if err := checkMetricConsistency(metricFamily, dtoMetric, metricHashes, dimHashes); err != nil {
+		// 	errs = append(errs, err)
+		// 	continue
+		// }
 		if r.pedanticChecksEnabled {
 			// Is the desc registered at all?
 			if _, exist := registeredDescIDs[desc.id]; !exist {
@@ -752,12 +752,10 @@ func checkMetricConsistency(
 	}
 	if dimHash, ok := dimHashes[metricFamily.GetName()]; ok {
 		if dimHash != dh {
-			// jdbaldry, cheating to get past the naturally inconsistent tag metrics labels
-			dimHashes[metricFamily.GetName()] = dh
-			// return fmt.Errorf(
-			// 	"collected metric %s %s has label dimensions inconsistent with previously collected metrics in the same metric family",
-			// 	metricFamily.GetName(), dtoMetric,
-			// )
+			return fmt.Errorf(
+				"collected metric %s %s has label dimensions inconsistent with previously collected metrics in the same metric family",
+				metricFamily.GetName(), dtoMetric,
+			)
 		}
 	} else {
 		dimHashes[metricFamily.GetName()] = dh

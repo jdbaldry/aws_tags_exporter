@@ -83,7 +83,7 @@ func main() {
 
 	collector := registryCollection{
 		Registry:   prometheus.NewRegistry(),
-		Collectors: map[string]struct{}{"rds": {}},
+		Collectors: map[string]struct{}{"elb": {}, "rds": {}},
 		Region:     Region}
 
 	activeCollectors := registerCollectors(collector)
