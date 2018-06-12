@@ -410,8 +410,8 @@ func (r *Registry) MustRegister(cs ...Collector) {
 func (r *Registry) Gather() ([]*dto.MetricFamily, error) {
 	var (
 		metricChan        = make(chan Metric, capMetricChan)
-		metricHashes      = map[uint64]struct{}{}
-		dimHashes         = map[string]uint64{}
+		// metricHashes      = map[uint64]struct{}{}
+		// dimHashes         = map[string]uint64{}
 		wg                sync.WaitGroup
 		errs              MultiError          // The collected errors to return in the end.
 		registeredDescIDs map[uint64]struct{} // Only used for pedantic checks
@@ -542,10 +542,10 @@ func (r *Registry) Gather() ([]*dto.MetricFamily, error) {
 			}
 			metricFamiliesByName[desc.fqName] = metricFamily
 		}
-		if err := checkMetricConsistency(metricFamily, dtoMetric, metricHashes, dimHashes); err != nil {
-			errs = append(errs, err)
-			continue
-		}
+		// if err := checkMetricConsistency(metricFamily, dtoMetric, metricHashes, dimHashes); err != nil {
+		// 	errs = append(errs, err)
+		// 	continue
+		// }
 		if r.pedanticChecksEnabled {
 			// Is the desc registered at all?
 			if _, exist := registeredDescIDs[desc.id]; !exist {
@@ -587,8 +587,8 @@ type Gatherers []Gatherer
 func (gs Gatherers) Gather() ([]*dto.MetricFamily, error) {
 	var (
 		metricFamiliesByName = map[string]*dto.MetricFamily{}
-		metricHashes         = map[uint64]struct{}{}
-		dimHashes            = map[string]uint64{}
+		//metricHashes         = map[uint64]struct{}{}
+		//dimHashes            = map[string]uint64{}
 		errs                 MultiError // The collected errors to return in the end.
 	)
 
@@ -628,10 +628,10 @@ func (gs Gatherers) Gather() ([]*dto.MetricFamily, error) {
 				metricFamiliesByName[mf.GetName()] = existingMF
 			}
 			for _, m := range mf.Metric {
-				if err := checkMetricConsistency(existingMF, m, metricHashes, dimHashes); err != nil {
-					errs = append(errs, err)
-					continue
-				}
+				// if err := checkMetricConsistency(existingMF, m, metricHashes, dimHashes); err != nil {
+				// 	errs = append(errs, err)
+				// 	continue
+				//}
 				existingMF.Metric = append(existingMF.Metric, m)
 			}
 		}
