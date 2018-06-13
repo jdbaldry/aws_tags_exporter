@@ -18,32 +18,79 @@ var (
 		descELBTagsHelp,
 		descELBTagsDefaultLabels, nil,
 	)
+
+	describeELBTagsBatch = 20
 )
 
-// elbCollector collects the tags of ELBs in the region.
 type elbCollector struct {
-	elbNames []string
-	elbTags  map[string]string
-	region   string
-	session  *elb.ELB
+	store  elbStore
+	region string
+}
+
+type elbList struct {
+	// Array of all LoadBalancerDescriptions with various metadata fields that may
+	// become useful labels
+	elbs []*elb.LoadBalancerDescription
+	// Array of TagDesciptions which include LoadBalancerName and []*Tag where
+	// Tag has the Key and Value fields
+	tags []*elb.TagDescription
+}
+
+type elbStore interface {
+	List() (elbList, error)
+}
+
+type elbLister func() (elbList, error)
+
+func (l elbLister) List() (elbList, error) {
+	return l()
 }
 
 func RegisterELBCollector(registry prometheus.Registerer, region *string) error {
+	glog.V(4).Infof("Registering collector: elb")
+
 	elbSession := elb.New(session.New(&aws.Config{
 		Region: aws.String(*region)},
 	))
 
-	if elbNames, err := getELBNames(elbSession); err != nil {
-		return err
-	} else {
-		if elbTags, err := getELBTagKeys(elbSession, elbNames); err != nil {
-			return err
-		} else {
-			registry.MustRegister(&elbCollector{elbNames: elbNames, region: *region,
-				elbTags: elbTags, session: elbSession})
+	lister := elbLister(func() (el elbList, err error) {
+		var elbTags []*elb.TagDescription
+
+		dlbInput := &elb.DescribeLoadBalancersInput{}
+		elbs, err := elbSession.DescribeLoadBalancers(dlbInput)
+		RequestTotalMetric.With(prometheus.Labels{"service": "elb", "region": *region}).Inc()
+		if err != nil {
+			RequestErrorTotalMetric.With(prometheus.Labels{"service": "elb", "region": *region}).Inc()
 		}
-	}
-	return nil
+
+		loadBalancerNames := []*string{}
+		for _, description := range elbs.LoadBalancerDescriptions {
+			loadBalancerNames = append(loadBalancerNames, description.LoadBalancerName)
+		}
+
+		for i:=0; i < len(elbs.LoadBalancerDescriptions); i += describeELBTagsBatch {
+			j := i + describeELBTagsBatch
+			if j > len(elbs.LoadBalancerDescriptions) {
+				j = len(elbs.LoadBalancerDescriptions)
+			}
+			dtInput := &elb.DescribeTagsInput{
+				LoadBalancerNames: loadBalancerNames[i:j],
+			}
+			result, err := elbSession.DescribeTags(dtInput)
+			RequestTotalMetric.With(prometheus.Labels{"service": "elb", "region": *region}).Inc()
+			if err != nil {
+				RequestErrorTotalMetric.With(prometheus.Labels{"service": "elb", "region": *region}).Inc()
+				return el, err
+			}
+			elbTags = append(elbTags, result.TagDescriptions...)
+		}
+
+		el = elbList{elbs: elbs.LoadBalancerDescriptions, tags: elbTags}
+		return
+	})
+
+	registry.MustRegister(&elbCollector{store: lister, region: *region})
+  return nil
 }
 
 // Describe implements the prometheus.Collector interface.
@@ -53,15 +100,15 @@ func (ec *elbCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implements the prometheus.Collector interface.
 func (ec *elbCollector) Collect(ch chan<- prometheus.Metric) {
-	glog.V(4).Infof("Collecting ELB tags")
-
-	elbs := ec.elbNames
-
-	for _, elb := range elbs {
-		ec.collectELBTags(ch, elb)
+	glog.V(4).Infof("Collecting: elb")
+	elbList, err := ec.store.List()
+	if err != nil {
+		glog.Errorf("Error collecting: elbs\n", err)
 	}
 
-	glog.V(4).Infof("Collected tags of %d ELBs", len(elbs))
+	for i, elb := range elbList.elbs {
+		ec.collectELB(ch, elb, elbList.tags[i])
+	}
 }
 
 func elbTagsDesc(labelKeys []string) *prometheus.Desc {
@@ -73,86 +120,22 @@ func elbTagsDesc(labelKeys []string) *prometheus.Desc {
 	)
 }
 
-func (ec *elbCollector) collectELBTags(ch chan<- prometheus.Metric, elb string) error {
+func awsTagDescriptionToPrometheusLabels(tagDescription *elb.TagDescription) (labelKeys, labelValues []string) {
+	for _, tag := range tagDescription.Tags {
+		labelKeys = append(labelKeys, sanitizeLabelName(*tag.Key))
+		labelValues = append(labelValues, *tag.Value)
+	}
 
+  return
+}
+
+func (ec *elbCollector) collectELB(ch chan<- prometheus.Metric, e *elb.LoadBalancerDescription, t *elb.TagDescription) error {
 	addGauge := func(desc *prometheus.Desc, v float64, lv ...string) {
-		lv = append([]string{elb, ec.region}, lv...)
+		lv = append([]string{*e.LoadBalancerName, ec.region}, lv...)
 		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, v, lv...)
 	}
 
-	labelKeys, labelValues, err := getELBTags(elb, ec.session, ec.elbTags)
-	if err != nil {
-		return err
-	}
+	labelKeys, labelValues := awsTagDescriptionToPrometheusLabels(t)
 	addGauge(elbTagsDesc(labelKeys), 1, labelValues...)
-
 	return nil
-}
-
-func getELBNames(elbSession *elb.ELB) (loadBalancerNames []string, err error) {
-	glog.V(4).Infof("Finding ELBs")
-	input := &elb.DescribeLoadBalancersInput{
-		LoadBalancerNames: []*string{},
-	}
-	result, err := elbSession.DescribeLoadBalancers(input)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, lbname := range result.LoadBalancerDescriptions {
-		loadBalancerNames = append(loadBalancerNames, *lbname.LoadBalancerName)
-	}
-	glog.V(4).Infof("Found %d ELBs", len(loadBalancerNames))
-	return
-}
-
-func getELBTagKeys(elbSession *elb.ELB, elbNames []string) (elbTags map[string]string, err error) {
-	glog.V(4).Infof("Finding unique ELB tag keys")
-	elbTags = make(map[string]string)
-	for _, l := range elbNames {
-		tagsInput := &elb.DescribeTagsInput{
-			LoadBalancerNames: []*string{
-				aws.String(l),
-			},
-		}
-		tagsResult, err := elbSession.DescribeTags(tagsInput)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, description := range tagsResult.TagDescriptions {
-			for _, tag := range description.Tags {
-				elbTags[*tag.Key] = ""
-			}
-		}
-	}
-	glog.V(4).Infof("Found %d unique ELB tag keys", len(elbTags))
-	return
-}
-
-func getELBTags(lbname string, elbSession *elb.ELB, elbTags map[string]string) (tagKey, tagValue []string, err error) {
-	tagsInput := &elb.DescribeTagsInput{
-		LoadBalancerNames: []*string{
-			aws.String(lbname),
-		},
-	}
-	tagsResult, err := elbSession.DescribeTags(tagsInput)
-	if err != nil {
-		return nil, nil, err
-	}
-	for k := range elbTags {
-		curValue := ""
-		for _, tag := range tagsResult.TagDescriptions {
-			for _, AllTags := range tag.Tags {
-				if *AllTags.Key == k {
-					curValue = *AllTags.Value
-					break
-				}
-			}
-		}
-
-		tagKey = append(tagKey, sanitizeLabelName(k))
-		tagValue = append(tagValue, curValue)
-	}
-	return
 }
