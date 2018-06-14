@@ -4,11 +4,12 @@ import (
 	"flag"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/golang/glog"
-	"github.com/grapeshot/aws_tags_exporter/collector"
+	acollector "github.com/grapeshot/aws_tags_exporter/collector"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -26,10 +27,10 @@ type registryCollection struct {
 	Region     *string
 }
 
-func metricsServer(registry prometheus.Gatherer, host string, port int) {
+func telemetryServer(registry prometheus.Gatherer, host string, port int) {
 	// Address to listen on for web interface and telemetry
 	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
-	glog.Infof("Starting metrics server: %s", listenAddress)
+	glog.Infof("Starting telemetry server: %s", listenAddress)
 
 	mux := http.NewServeMux()
 
@@ -51,12 +52,38 @@ func metricsServer(registry prometheus.Gatherer, host string, port int) {
 	glog.Fatal(http.ListenAndServe(listenAddress, mux))
 }
 
+
+func metricsServer(registry prometheus.Gatherer, host string, port int) {
+	// Address to listen on for web interface and telemetry
+	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
+	glog.Infof("Starting metrics server: %s", listenAddress)
+
+	mux := http.NewServeMux()
+
+	// Add metricsPath
+	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{ErrorLog: promLogger{}}))
+
+	// Add index
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html>
+             <head><title>AWS Tags Server</title></head>
+             <body>
+             <h1>AWS Tags Metrics</h1>
+			 <ul>
+             <li><a href='` + "/metrics" + `'>metrics</a></li>
+			 </ul>
+             </body>
+             </html>`))
+	})
+	glog.Fatal(http.ListenAndServe(listenAddress, mux))
+}
+
 // registerCollectors creates and starts informers and initializes and
 // registers metrics for collection.
 func registerCollectors(r registryCollection) []string {
 	activeCollectors := []string{}
 	for c := range r.Collectors {
-		if f, ok := collector.AvailableCollectors[c]; ok {
+		if f, ok := acollector.AvailableCollectors[c]; ok {
 			if err := f(r.Registry, r.Region); err != nil {
 				glog.Errorf("%s", err)
 				continue
@@ -72,7 +99,8 @@ func registerCollectors(r registryCollection) []string {
 
 func main() {
 	// Parse the args (expecting -aws.region)
-	Port := flag.Int("web.listen-address", 60020, "Port number to listen on, default is 60020")
+	TelemetryPort := flag.Int("web.telemetry-port", 60021, "Port number to listen on for telemetry")
+	Port := flag.Int("web.port", 60020, "Port number to listen on for metrics")
 	Host := flag.String("web.host", "0.0.0.0", "Port number to listen on, default is 0.0.0.0")
 	Region := flag.String("aws.region", "", "AWS region to query.")
 	flag.Parse()
@@ -81,13 +109,20 @@ func main() {
 		glog.Fatal("Please supply a region")
 	}
 
-	collector := registryCollection{
+	collectorRegistry := registryCollection{
 		Registry:   prometheus.NewRegistry(),
 		Collectors: map[string]struct{}{"elb": {}, "rds": {}},
 		Region:     Region}
 
-	activeCollectors := registerCollectors(collector)
+	awsTagsMetricsRegistry := prometheus.NewRegistry()
+	awsTagsMetricsRegistry.MustRegister(acollector.RequestTotalMetric)
+	awsTagsMetricsRegistry.MustRegister(acollector.RequestErrorTotalMetric)
+	awsTagsMetricsRegistry.MustRegister(prometheus.NewProcessCollector(os.Getpid(), ""))
+	awsTagsMetricsRegistry.MustRegister(prometheus.NewGoCollector())
+
+	activeCollectors := registerCollectors(collectorRegistry)
 	glog.Infof("Active collectors: %s", strings.Join(activeCollectors, ","))
-	metricsServer(collector.Registry, *Host, *Port)
+	go telemetryServer(awsTagsMetricsRegistry, *Host, *TelemetryPort)
+	metricsServer(collectorRegistry.Registry, *Host, *Port)
 
 }

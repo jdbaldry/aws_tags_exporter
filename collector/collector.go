@@ -13,6 +13,20 @@ const (
 )
 
 var (
+	RequestTotalMetric = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "aws_tags_request_total",
+			Help: "Total requests made by the aws_tags_exporter for a service",
+		},
+		[]string{"service", "region"},
+	)
+	RequestErrorTotalMetric = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "aws_tags_request_error_total",
+			Help: "Total errors encountered when collecting a service",
+		},
+		[]string{"service", "region"},
+	)
 	invalidLabelCharRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 )
 

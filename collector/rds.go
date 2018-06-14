@@ -10,7 +10,7 @@ import (
 
 var (
   descRDSTagsName          = prometheus.BuildFQName(namespace, "rds", "tags")
-  descRDSTagsHelp          = "AWS ELB tags converted to Prometheus labels."
+  descRDSTagsHelp          = "AWS RDS tags converted to Prometheus labels."
   descRDSTagsDefaultLabels = []string{"name", "identifier", "availability_zone"}
 
   descRDSTags = prometheus.NewDesc(
@@ -22,6 +22,7 @@ var (
 
 type rdsCollector struct {
   store rdsStore
+  region string
 }
 
 // rdsList contains ordered arrays of database instances and tag lists
@@ -49,21 +50,28 @@ func RegisterRDSCollector(registry prometheus.Registerer, region *string) error 
     var rdsTags [][]*rds.Tag
     dbInput := &rds.DescribeDBInstancesInput{}
 		result, err := rdsSession.DescribeDBInstances(dbInput)
+    RequestTotalMetric.With(prometheus.Labels{"service": "rds", "region": *region}).Inc()
+    if err != nil {
+      RequestErrorTotalMetric.With(prometheus.Labels{"service": "rds", "region": *region}).Inc()
+      return rl, err
+    }
     for _, dbi := range result.DBInstances {
       ltInput := &rds.ListTagsForResourceInput{
         ResourceName: aws.String(*dbi.DBInstanceArn),
       }
       result, err := rdsSession.ListTagsForResource(ltInput)
-      if err != nil {
-        return rl, err
-      }
+      RequestTotalMetric.With(prometheus.Labels{"service": "rds", "region": *region}).Inc()
+			if err != nil {
+				RequestErrorTotalMetric.With(prometheus.Labels{"service": "rds", "region": *region}).Inc()
+				return rl, err
+			}
       rdsTags = append(rdsTags, result.TagList)
     }
     rl = rdsList{instances: result.DBInstances, tags: rdsTags}
     return
 	})
 
-	registry.MustRegister(&rdsCollector{store: lister})
+	registry.MustRegister(&rdsCollector{store: lister, region: *region})
 
   return nil
 }
@@ -83,10 +91,10 @@ func (rc *rdsCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implements the prometheus.Collector interface.
 func (rc *rdsCollector) Collect(ch chan<- prometheus.Metric) {
-  glog.V(4).Infof("Collecting RDS instance tags")
+  glog.V(4).Infof("Collecting: rds")
   rdsList, err := rc.store.List()
   if err != nil {
-    glog.Errorf("Error listing RDS instances: ", err)
+    glog.Errorf("Error collecting: rds\n", err)
   }
 
   for i, instance := range rdsList.instances {
