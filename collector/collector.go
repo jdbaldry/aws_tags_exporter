@@ -30,10 +30,10 @@ var (
 	invalidLabelCharRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 )
 
-var AvailableCollectors = map[string]func(registry prometheus.Registerer, Region *string) error{
+var AvailableCollectors = map[string]func(registry prometheus.Registerer, Region string) error{
 	"elb": RegisterELBCollector,
 	"rds": RegisterRDSCollector,
-//	"elasticsearchservice": RegisterESCollector,
+	//	"elasticsearchservice": RegisterESCollector,
 }
 
 type Collector interface {

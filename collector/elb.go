@@ -40,10 +40,10 @@ type elbCollector struct {
 // elbList is a collection of LoadBalancerDescriptions and TagDescriptions stored
 // in arrays in the same order such that elbList.tags[i] should be for the elbList.elbs[i].LoadBalancerName
 type elbList struct {
-	// Array of all LoadBalancerDescriptions with various metadata fields that may
+	// Array of all pointers to LoadBalancerDescriptions with various metadata fields that may
 	// become useful labels
 	elbs []*elb.LoadBalancerDescription
-	// Array of TagDesciptions which include LoadBalancerName and []*Tag where
+	// Array of pointers to TagDescriptions which include LoadBalancerName and []*Tag where
 	// Tag has the Key and Value fields
 	tags []*elb.TagDescription
 }
@@ -63,11 +63,11 @@ func (l elbLister) List() (elbList, error) {
 
 // RegisterELBCollector receives a prometheus Registry and AWS region and creates
 // an elbLister that can return the elbList struct that
-func RegisterELBCollector(registry prometheus.Registerer, region *string) error {
+func RegisterELBCollector(registry prometheus.Registerer, region string) error {
 	glog.V(4).Infof("Registering collector: elb")
 
 	elbSession := elb.New(session.New(&aws.Config{
-		Region: aws.String(*region)},
+		Region: aws.String(region)},
 	))
 
 	lister := elbLister(func() (el elbList, err error) {
@@ -76,9 +76,9 @@ func RegisterELBCollector(registry prometheus.Registerer, region *string) error 
 
 		dlbInput := &elb.DescribeLoadBalancersInput{}
 		elbs, err := elbSession.DescribeLoadBalancers(dlbInput)
-		RequestTotalMetric.With(prometheus.Labels{"service": "elb", "region": *region}).Inc()
+		RequestTotalMetric.With(prometheus.Labels{"service": "elb", "region": region}).Inc()
 		if err != nil {
-			RequestErrorTotalMetric.With(prometheus.Labels{"service": "elb", "region": *region}).Inc()
+			RequestErrorTotalMetric.With(prometheus.Labels{"service": "elb", "region": region}).Inc()
 		}
 
 		elbNames := []*string{}
@@ -101,9 +101,9 @@ func RegisterELBCollector(registry prometheus.Registerer, region *string) error 
 			go func(input *elb.DescribeTagsInput) error {
 				result, err := elbSession.DescribeTags(input)
 				defer wg.Done()
-				RequestTotalMetric.With(prometheus.Labels{"service": "elb", "region": *region}).Inc()
+				RequestTotalMetric.With(prometheus.Labels{"service": "elb", "region": region}).Inc()
 				if err != nil {
-					RequestErrorTotalMetric.With(prometheus.Labels{"service": "elb", "region": *region}).Inc()
+					RequestErrorTotalMetric.With(prometheus.Labels{"service": "elb", "region": region}).Inc()
 					return err
 				}
 				elbTags = append(elbTags, result.TagDescriptions...)
@@ -119,7 +119,7 @@ func RegisterELBCollector(registry prometheus.Registerer, region *string) error 
 		return
 	})
 
-	registry.MustRegister(&elbCollector{store: lister, region: *region})
+	registry.MustRegister(&elbCollector{store: lister, region: region})
 	return nil
 }
 
