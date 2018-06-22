@@ -2,7 +2,8 @@
 
 A Prometheus exporter to expose AWS tags as Prometheus metrics.
 
-##Collectors
+## Collectors
+
 The table below lists all existing collectors and the information they provide.
 
 Name    | Description | Default labels (other than tags)
