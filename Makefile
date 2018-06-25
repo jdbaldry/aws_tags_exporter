@@ -27,3 +27,8 @@ lint:
 update-dependencies:
 	dep ensure -update
 .PHONY: update-dependencies
+
+test: 
+	@echo ">> running tests"
+	$(GO) test -short $(test-flags) $(pkgs)
+
