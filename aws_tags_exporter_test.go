@@ -13,43 +13,35 @@ import (
 
 var (
 	binary = filepath.Join(os.Getenv("GOPATH"), "bin/aws_tags_exporter")
+	C      = &myCmd{cmd: exec.Command(binary, "--web.port", address, "--aws.region", region)}
 )
 
 const (
-	address = "localhost:60099"
+	address = "60099"
+	region  = "eu-west-1"
 )
 
-func TestHandlingOfDuplicatedMetrics(t *testing.T) {
+type myCmd struct {
+	cmd *exec.Cmd
+}
+
+func TestHandlingOfMetrics(t *testing.T) {
 	if _, err := os.Stat(binary); err != nil {
-		t.Skipf("node_exporter binary not available, try to run `make build` first: %s", err)
+		t.Skipf("aws_tags_exporter binary not available, try to run `make build` first: %s", err)
 	}
 
-	dir, err := ioutil.TempDir("", "node-exporter")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
-	content := []byte("dummy_metric 1\n")
-	if err := ioutil.WriteFile(filepath.Join(dir, "a.prom"), content, 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile(filepath.Join(dir, "b.prom"), content, 0600); err != nil {
-		t.Fatal(err)
-	}
-
-	exporter := exec.Command(binary, "--web.listen-address", address, "--collector.textfile.directory", dir)
 	test := func(_ int) error {
 		return queryExporter(address)
 	}
 
-	if err := runCommandAndTests(exporter, address, test); err != nil {
+	if err := runCommandAndTests(address, test); err != nil {
 		t.Error(err)
 	}
+	killCmd()
 }
 
 func queryExporter(address string) error {
-	resp, err := http.Get(fmt.Sprintf("http://%s/metrics", address))
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%s/metrics", address))
 	if err != nil {
 		return err
 	}
@@ -57,6 +49,7 @@ func queryExporter(address string) error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("%s", b)
 	if err := resp.Body.Close(); err != nil {
 		return err
 	}
@@ -66,8 +59,8 @@ func queryExporter(address string) error {
 	return nil
 }
 
-func runCommandAndTests(cmd *exec.Cmd, address string, fn func(pid int) error) error {
-	if err := cmd.Start(); err != nil {
+func runCommandAndTests(address string, fn func(pid int) error) error {
+	if err := C.cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start command: %s", err)
 	}
 	time.Sleep(50 * time.Millisecond)
@@ -76,7 +69,7 @@ func runCommandAndTests(cmd *exec.Cmd, address string, fn func(pid int) error) e
 			break
 		}
 		time.Sleep(500 * time.Millisecond)
-		if cmd.Process == nil || i == 9 {
+		if C.cmd.Process == nil || i == 9 {
 			return fmt.Errorf("can't start command")
 		}
 	}
@@ -84,11 +77,15 @@ func runCommandAndTests(cmd *exec.Cmd, address string, fn func(pid int) error) e
 	errc := make(chan error)
 	go func(pid int) {
 		errc <- fn(pid)
-	}(cmd.Process.Pid)
+	}(C.cmd.Process.Pid)
 
 	err := <-errc
-	if cmd.Process != nil {
-		cmd.Process.Kill()
-	}
 	return err
+}
+
+func killCmd() {
+	if C.cmd.Process != nil {
+		fmt.Println("Killing proc\n\n\n")
+		C.cmd.Process.Kill()
+	}
 }
