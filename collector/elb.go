@@ -62,7 +62,8 @@ func (l elbLister) List() (elbList, error) {
 }
 
 // RegisterELBCollector receives a prometheus Registry and AWS region and creates
-// an elbLister that can return the elbList struct that
+// an elbLister that can return the elbList struct that arrays of pointers to
+// LoadBalancerDescription and TagDescription
 func RegisterELBCollector(registry prometheus.Registerer, region string) error {
 	glog.V(4).Infof("Registering collector: elb")
 
