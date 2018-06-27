@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	binary = filepath.Join(os.Getenv("GOPATH"), "bin/aws_tags_exporter")
-	C      = &myCmd{cmd: exec.Command(binary, "--web.port", address, "--aws.region", region)}
+	binary, _ = filepath.Abs("_output/bin/aws_tags_exporter.go")
+	C         = &myCmd{cmd: exec.Command(binary, "--web.port", address, "--aws.region", region)}
 )
 
 const (
