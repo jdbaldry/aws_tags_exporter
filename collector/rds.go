@@ -43,6 +43,8 @@ func (l rdsLister) List() (rdsList, error) {
 	return l()
 }
 
+// RegisterRDSCollector registers a collector of RDS tags.
+// It also creates the lister function that performs tag collection
 func RegisterRDSCollector(registry prometheus.Registerer, region string) error {
 	rdsSession := rds.New(session.New(&aws.Config{
 		Region: aws.String(region)},
@@ -104,7 +106,7 @@ func (rc *rdsCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	for i, instance := range rdsList.instances {
-		rc.collectRDS(ch, instance, rdsList.tags[i])
+		rc.collectRDS(ch, *instance, rdsList.tags[i])
 	}
 }
 
@@ -116,7 +118,7 @@ func awsTagToPrometheusLabels(tags []*rds.Tag) (labelKeys, labelValues []string)
 	return
 }
 
-func (rc *rdsCollector) collectRDS(ch chan<- prometheus.Metric, i *rds.DBInstance, t []*rds.Tag) {
+func (rc *rdsCollector) collectRDS(ch chan<- prometheus.Metric, i rds.DBInstance, t []*rds.Tag) {
 	addGauge := func(desc *prometheus.Desc, v float64, lv ...string) {
 		lv = append([]string{*i.DBName, *i.DBInstanceIdentifier, *i.AvailabilityZone}, lv...)
 		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, v, lv...)
