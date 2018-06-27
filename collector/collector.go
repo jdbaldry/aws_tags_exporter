@@ -13,6 +13,7 @@ const (
 )
 
 var (
+	// RequestTotalMetric counts the total requests made to AWS by all collectors
 	RequestTotalMetric = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "aws_tags_request_total",
@@ -20,6 +21,8 @@ var (
 		},
 		[]string{"service", "region"},
 	)
+	// RequestErrorTotalMetric counts the total errors encountered by all collectors
+	// when making requests to AWS
 	RequestErrorTotalMetric = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "aws_tags_request_error_total",
@@ -30,12 +33,15 @@ var (
 	invalidLabelCharRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 )
 
-var AvailableCollectors = map[string]func(registry prometheus.Registerer, Region *string) error{
+// AvailableCollectors is a map of all implemented collectors with the associated
+// registration function
+var AvailableCollectors = map[string]func(registry prometheus.Registerer, region string) error{
 	"elb": RegisterELBCollector,
 	"rds": RegisterRDSCollector,
-//	"elasticsearchservice": RegisterESCollector,
+	//	"elasticsearchservice": RegisterESCollector,
 }
 
+// Collector implements the Update function of the prometheus.Collector interface
 type Collector interface {
 	// Get new metrics and expose them via prometheus registry.
 	Update(ch chan<- prometheus.Metric) error
