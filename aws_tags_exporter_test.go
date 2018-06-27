@@ -85,7 +85,7 @@ func runCommandAndTests(address string, fn func(pid int) error) error {
 
 func killCmd() {
 	if C.cmd.Process != nil {
-		fmt.Println("Killing proc\n\n\n")
+		fmt.Println("Killing proc")
 		C.cmd.Process.Kill()
 	}
 }
