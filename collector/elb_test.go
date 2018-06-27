@@ -19,7 +19,7 @@ func TestAWSTagDescriptionToPrometheusLabels(t *testing.T) {
 		Tags:             tags,
 	}
 
-	lk, lv := awsTagDescriptionToPrometheusLabels(td)
+	lk, lv := awsTagDescriptionToPrometheusLabels(*td)
 
 	if lk[0] != *tags[0].Key {
 		t.Errorf("Label key of tag key %s should be %s, not %s", *tags[0].Key, *tags[0].Key, lk[0])

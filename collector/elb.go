@@ -138,7 +138,7 @@ func (ec *elbCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	for i, elb := range elbList.elbs {
-		ec.collectELB(ch, elb, elbList.tags[i])
+		ec.collectELB(ch, *elb, *elbList.tags[i])
 	}
 }
 
@@ -155,7 +155,7 @@ func elbTagsDesc(labelKeys []string) *prometheus.Desc {
 
 // awsTagDescriptionToPrometheusLabels takes a pointer to a TagDescription and returns
 // a list of label values and sanitized label keys
-func awsTagDescriptionToPrometheusLabels(tagDescription *elb.TagDescription) (labelKeys, labelValues []string) {
+func awsTagDescriptionToPrometheusLabels(tagDescription elb.TagDescription) (labelKeys, labelValues []string) {
 	for _, tag := range tagDescription.Tags {
 		labelKeys = append(labelKeys, sanitizeLabelName(*tag.Key))
 		labelValues = append(labelValues, *tag.Value)
@@ -166,7 +166,7 @@ func awsTagDescriptionToPrometheusLabels(tagDescription *elb.TagDescription) (la
 
 // collectELB takes a pointer to both a LoadBalancerDescription and TagDescription and builds the lists of
 // label keys and label values used subsequently as labels to the tags gauge
-func (ec *elbCollector) collectELB(ch chan<- prometheus.Metric, e *elb.LoadBalancerDescription, t *elb.TagDescription) error {
+func (ec *elbCollector) collectELB(ch chan<- prometheus.Metric, e elb.LoadBalancerDescription, t elb.TagDescription) error {
 	addGauge := func(desc *prometheus.Desc, v float64, lv ...string) {
 		lv = append([]string{*e.LoadBalancerName, ec.region}, lv...)
 		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, v, lv...)

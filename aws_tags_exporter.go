@@ -52,7 +52,6 @@ func telemetryServer(registry prometheus.Gatherer, host string, port int) {
 	glog.Fatal(http.ListenAndServe(listenAddress, mux))
 }
 
-
 func metricsServer(registry prometheus.Gatherer, host string, port int) {
 	// Address to listen on for web interface and telemetry
 	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
@@ -84,7 +83,7 @@ func registerCollectors(r registryCollection) []string {
 	activeCollectors := []string{}
 	for c := range r.Collectors {
 		if f, ok := acollector.AvailableCollectors[c]; ok {
-			if err := f(r.Registry, r.Region); err != nil {
+			if err := f(r.Registry, *r.Region); err != nil {
 				glog.Errorf("%s", err)
 				continue
 			}
