@@ -36,8 +36,9 @@ var (
 // AvailableCollectors is a map of all implemented collectors with the associated
 // registration function
 var AvailableCollectors = map[string]func(registry prometheus.Registerer, region string) error{
-	"elb": RegisterELBCollector,
-	"rds": RegisterRDSCollector,
+	"elb":             RegisterELBCollector,
+	"rds":             RegisterRDSCollector,
+	"elastic_service": RegisterESSCollector,
 	//	"elasticsearchservice": RegisterESCollector,
 }
 
