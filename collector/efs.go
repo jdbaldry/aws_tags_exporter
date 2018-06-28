@@ -68,11 +68,11 @@ func RegisterEFSCollector(registry prometheus.Registerer, region string) error {
 		}
 
 		errs := makeConcurrentRequests(reqs, "efs")
-
-		// Metrics set by concurrent requests function
 		efsTags := make([]efsItem, 0, len(fsOut.FileSystems))
 		for i := range outs {
+			RequestTotalMetric.With(prometheus.Labels{"service": "efs", "region": region}).Inc()
 			if errs[i] != nil {
+				RequestErrorTotalMetric.With(prometheus.Labels{"service": "efs", "region": region}).Inc()
 				continue
 			}
 
