@@ -18,8 +18,6 @@ var (
 		descEFSTagsHelp,
 		descEFSTagsDefaultLabels, nil,
 	)
-
-	describeEFSTagsBatch = 20 // Worth making a global batch size for all batched APIs?
 )
 
 type efsCollector struct {
