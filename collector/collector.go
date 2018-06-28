@@ -2,7 +2,10 @@ package collector
 
 import (
 	"regexp"
+	"sync"
 
+	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -36,6 +39,7 @@ var (
 // AvailableCollectors is a map of all implemented collectors with the associated
 // registration function
 var AvailableCollectors = map[string]func(registry prometheus.Registerer, region string) error{
+	"efs": RegisterEFSCollector,
 	"elb": RegisterELBCollector,
 	"rds": RegisterRDSCollector,
 	//	"elasticsearchservice": RegisterESCollector,
@@ -45,6 +49,21 @@ var AvailableCollectors = map[string]func(registry prometheus.Registerer, region
 type Collector interface {
 	// Get new metrics and expose them via prometheus registry.
 	Update(ch chan<- prometheus.Metric) error
+}
+
+func makeConcurrentRequests(reqs []*request.Request, service string) []error {
+	var wg sync.WaitGroup
+	var errs = make([]error, len(reqs))
+	glog.V(4).Infof("Collecting %s", service)
+	wg.Add(len(reqs))
+	for i := range reqs {
+		go func(i int, req *request.Request) {
+			defer wg.Done()
+			errs[i] = req.Send()
+		}(i, reqs[i])
+	}
+	wg.Wait()
+	return errs
 }
 
 func sanitizeLabelName(s string) string {
