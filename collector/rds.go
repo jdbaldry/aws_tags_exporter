@@ -44,7 +44,7 @@ func (l rdsLister) List() (rdsList, error) {
 
 // RegisterRDSCollector registers a collector of RDS tags.
 // It also creates the lister function that performs tag collection
-func RegisterRDSCollector(registry prometheus.Registerer, region string) error {
+func RegisterRDSCollector(registry prometheus.Registerer, region string) {
 	glog.V(4).Infof("Registering collector: rds")
 
 	rdsSession := rds.New(session.New(&aws.Config{
@@ -89,7 +89,6 @@ func RegisterRDSCollector(registry prometheus.Registerer, region string) error {
 	})
 
 	registry.MustRegister(&rdsCollector{store: lister, region: region})
-	return nil
 }
 
 func rdsTagsDesc(labelKeys []string) *prometheus.Desc {
