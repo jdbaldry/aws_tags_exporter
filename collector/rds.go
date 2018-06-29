@@ -1,9 +1,8 @@
 package collector
 
 import (
-	"time"
-
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/golang/glog"
@@ -45,42 +44,51 @@ func (l rdsLister) List() (rdsList, error) {
 
 // RegisterRDSCollector registers a collector of RDS tags.
 // It also creates the lister function that performs tag collection
-func RegisterRDSCollector(registry prometheus.Registerer, region string) error {
+func RegisterRDSCollector(registry prometheus.Registerer, region string) {
+	glog.V(4).Infof("Registering collector: rds")
+
 	rdsSession := rds.New(session.New(&aws.Config{
 		Region: aws.String(region)},
 	))
 
-	lister := rdsLister(func() (rl rdsList, err error) {
-		start := time.Now()
-		var rdsTags [][]*rds.Tag
+	lister := rdsLister(func() (rdsList, error) {
+
 		dbInput := &rds.DescribeDBInstancesInput{}
-		result, err := rdsSession.DescribeDBInstances(dbInput)
+		dbOut, err := rdsSession.DescribeDBInstances(dbInput)
+
 		RequestTotalMetric.With(prometheus.Labels{"service": "rds", "region": region}).Inc()
 		if err != nil {
 			RequestErrorTotalMetric.With(prometheus.Labels{"service": "rds", "region": region}).Inc()
-			return rl, err
+			return rdsList{}, err
 		}
-		for _, dbi := range result.DBInstances {
+
+		reqs := make([]*request.Request, 0, len(dbOut.DBInstances))
+		outs := make([]*rds.ListTagsForResourceOutput, 0, len(dbOut.DBInstances))
+		for _, db := range dbOut.DBInstances {
 			ltInput := &rds.ListTagsForResourceInput{
-				ResourceName: aws.String(*dbi.DBInstanceArn),
+				ResourceName: aws.String(*db.DBInstanceArn),
 			}
-			result, err := rdsSession.ListTagsForResource(ltInput)
-			RequestTotalMetric.With(prometheus.Labels{"service": "rds", "region": region}).Inc()
-			if err != nil {
-				RequestErrorTotalMetric.With(prometheus.Labels{"service": "rds", "region": region}).Inc()
-				return rl, err
-			}
-			rdsTags = append(rdsTags, result.TagList)
+			req, out := rdsSession.ListTagsForResourceRequest(ltInput)
+			reqs = append(reqs, req)
+			outs = append(outs, out)
 		}
-		rl = rdsList{instances: result.DBInstances, tags: rdsTags}
-		elapsed := time.Since(start)
-		glog.V(4).Infof("Collecting RDS took %s", elapsed)
-		return
+
+		errs := makeConcurrentRequests(reqs, "rds")
+		rdsTags := make([][]*rds.Tag, 0, len(dbOut.DBInstances))
+		for i := range outs {
+			RequestTotalMetric.With(prometheus.Labels{"service": "rds", "region": region}).Inc()
+			if errs[i] != nil {
+				RequestErrorTotalMetric.With(prometheus.Labels{"service": "rds", "region": region}).Inc()
+				continue
+			}
+
+			rdsTags = append(rdsTags, outs[i].TagList)
+		}
+
+		return rdsList{instances: dbOut.DBInstances, tags: rdsTags}, nil
 	})
 
 	registry.MustRegister(&rdsCollector{store: lister, region: region})
-
-	return nil
 }
 
 func rdsTagsDesc(labelKeys []string) *prometheus.Desc {

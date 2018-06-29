@@ -38,17 +38,11 @@ var (
 
 // AvailableCollectors is a map of all implemented collectors with the associated
 // registration function
-var AvailableCollectors = map[string]func(registry prometheus.Registerer, region string) error{
+var AvailableCollectors = map[string]func(registry prometheus.Registerer, region string){
 	"efs": RegisterEFSCollector,
 	"elb": RegisterELBCollector,
 	"rds": RegisterRDSCollector,
 	//	"elasticsearchservice": RegisterESCollector,
-}
-
-// Collector implements the Update function of the prometheus.Collector interface
-type Collector interface {
-	// Get new metrics and expose them via prometheus registry.
-	Update(ch chan<- prometheus.Metric) error
 }
 
 func makeConcurrentRequests(reqs []*request.Request, service string) []error {

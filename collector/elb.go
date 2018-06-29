@@ -1,10 +1,8 @@
 package collector
 
 import (
-	"sync"
-	"time"
-
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/golang/glog"
@@ -64,22 +62,22 @@ func (l elbLister) List() (elbList, error) {
 // RegisterELBCollector receives a prometheus Registry and AWS region and creates
 // an elbLister that can return the elbList struct that arrays of pointers to
 // LoadBalancerDescription and TagDescription
-func RegisterELBCollector(registry prometheus.Registerer, region string) error {
+func RegisterELBCollector(registry prometheus.Registerer, region string) {
 	glog.V(4).Infof("Registering collector: elb")
 
 	elbSession := elb.New(session.New(&aws.Config{
 		Region: aws.String(region)},
 	))
 
-	lister := elbLister(func() (el elbList, err error) {
-		start := time.Now()
-		var elbTags []*elb.TagDescription
+	lister := elbLister(func() (elbList, error) {
 
 		dlbInput := &elb.DescribeLoadBalancersInput{}
 		elbs, err := elbSession.DescribeLoadBalancers(dlbInput)
+
 		RequestTotalMetric.With(prometheus.Labels{"service": "elb", "region": region}).Inc()
 		if err != nil {
 			RequestErrorTotalMetric.With(prometheus.Labels{"service": "elb", "region": region}).Inc()
+			return elbList{}, err
 		}
 
 		elbNames := []*string{}
@@ -87,41 +85,39 @@ func RegisterELBCollector(registry prometheus.Registerer, region string) error {
 			elbNames = append(elbNames, description.LoadBalancerName)
 		}
 
-		var wg sync.WaitGroup
+		numReqs := len(elbs.LoadBalancerDescriptions)/describeELBTagsBatch + 1
+		reqs := make([]*request.Request, 0, numReqs)
+		outs := make([]*elb.DescribeTagsOutput, 0, numReqs)
 		for i := 0; i < len(elbs.LoadBalancerDescriptions); i += describeELBTagsBatch {
 			j := i + describeELBTagsBatch
 			if j > len(elbs.LoadBalancerDescriptions) {
 				j = len(elbs.LoadBalancerDescriptions)
 			}
-			glog.V(4).Infof("Collecting elb %d, %d", i, j)
 			dtInput := &elb.DescribeTagsInput{
 				LoadBalancerNames: elbNames[i:j],
 			}
-			wg.Add(1)
 
-			go func(input *elb.DescribeTagsInput) error {
-				result, err := elbSession.DescribeTags(input)
-				defer wg.Done()
-				RequestTotalMetric.With(prometheus.Labels{"service": "elb", "region": region}).Inc()
-				if err != nil {
-					RequestErrorTotalMetric.With(prometheus.Labels{"service": "elb", "region": region}).Inc()
-					return err
-				}
-				elbTags = append(elbTags, result.TagDescriptions...)
-				return nil
-			}(dtInput)
-
-			wg.Wait()
+			req, out := elbSession.DescribeTagsRequest(dtInput)
+			reqs = append(reqs, req)
+			outs = append(outs, out)
 		}
 
-		el = elbList{elbs: elbs.LoadBalancerDescriptions, tags: elbTags}
-		elapsed := time.Since(start)
-		glog.V(4).Infof("Collecting ELB took %s", elapsed)
-		return
+		errs := makeConcurrentRequests(reqs, "elb")
+		elbTags := make([]*elb.TagDescription, 0, len(elbs.LoadBalancerDescriptions))
+		for i := range outs {
+			RequestTotalMetric.With(prometheus.Labels{"service": "elb", "region": region}).Inc()
+			if errs[i] != nil {
+				RequestErrorTotalMetric.With(prometheus.Labels{"service": "elb", "region": region}).Inc()
+				continue
+			}
+
+			elbTags = append(elbTags, outs[i].TagDescriptions...)
+		}
+
+		return elbList{elbs: elbs.LoadBalancerDescriptions, tags: elbTags}, nil
 	})
 
 	registry.MustRegister(&elbCollector{store: lister, region: region})
-	return nil
 }
 
 // Describe implements the prometheus.Collector interface.

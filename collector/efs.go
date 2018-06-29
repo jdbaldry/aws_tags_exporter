@@ -40,7 +40,7 @@ func (l efsLister) List() ([]efsItem, error) {
 	return l()
 }
 
-func RegisterEFSCollector(registry prometheus.Registerer, region string) error {
+func RegisterEFSCollector(registry prometheus.Registerer, region string) {
 	glog.V(4).Infof("Registering collector: efs")
 
 	efsSession := efs.New(session.New(&aws.Config{
@@ -84,7 +84,6 @@ func RegisterEFSCollector(registry prometheus.Registerer, region string) error {
 	})
 
 	registry.MustRegister(&efsCollector{store: lister, region: region})
-	return nil
 }
 
 func (ef *efsCollector) Describe(ch chan<- *prometheus.Desc) {
