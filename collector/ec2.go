@@ -20,16 +20,18 @@ var (
 		descEC2TagsHelp,
 		descEC2TagsDefaultLabels, nil,
 	)
-
-	ec2Resources = make(map[string]*ec2_dim)
 )
+
+type ec2Resources struct {
+	idMap map[string]*ec2Dim
+}
 
 type ec2Collector struct {
 	store  ec2Store
 	region string
 }
 
-type ec2_dim struct {
+type ec2Dim struct {
 	resType   string
 	tagKeys   []string
 	tagValues []string
@@ -49,9 +51,7 @@ func RegisterEC2Collector(registry prometheus.Registerer, region string) error {
 
 	start := time.Now()
 
-	sess := session.New(&aws.Config{Region: aws.String(region)})
-
-	ec2Session := ec2.New(sess)
+	ec2Session := ec2.New(session.New(&aws.Config{Region: aws.String(region)}))
 
 	lister := ec2Lister(func() (er ec2Resources, err error) {
 		result, err := ec2Session.DescribeTags(nil)
@@ -61,13 +61,14 @@ func RegisterEC2Collector(registry prometheus.Registerer, region string) error {
 			//fmt.Println("error")
 		} else {
 			tags := result.Tags
+			er.idMap = make(map[string]*ec2Dim)
 			for _, tag := range tags {
-				_, exist := ec2Resources[*tag.ResourceId]
+				_, exist := er.idMap[*tag.ResourceId]
 				if exist {
-					ec2Resources[*tag.ResourceId].tagKeys = append(ec2Resources[*tag.ResourceId].tagKeys, *tag.Key)
-					ec2Resources[*tag.ResourceId].tagValues = append(ec2Resources[*tag.ResourceId].tagValues, *tag.Value)
+					er.idMap[*tag.ResourceId].tagKeys = append(er.idMap[*tag.ResourceId].tagKeys, *tag.Key)
+					er.idMap[*tag.ResourceId].tagValues = append(er.idMap[*tag.ResourceId].tagValues, *tag.Value)
 				} else {
-					ec2Resources[*tag.ResourceId] = &ec2_dim{*tag.ResourceType, []string{*tag.Key}, []string{*tag.Value}}
+					er.idMap[*tag.ResourceId] = &ec2Dim{*tag.ResourceType, []string{*tag.Key}, []string{*tag.Value}}
 				}
 			}
 			//fmt.Println(ec2Resources)
@@ -104,12 +105,12 @@ func (ec *ec2Collector) Collect(ch chan<- prometheus.Metric) {
 		glog.Errorf("Error collecting: ec2\n", err)
 	}
 
-	for i, instance := range ec2Resources.instances {
-		ec.collectEC2(ch, *instance, ec2Resources.tags[i])
+	for i, instance := range ec2Resources.idMap {
+		ec.collectEC2(ch, i, *instance)
 	}
 }
 
-func awsTagToPrometheusLabels(keys, values []string) (labelKeys, labelValues []string) {
+func awsEC2TagToPrometheusLabels(keys, values []string) (labelKeys, labelValues []string) {
 	for _, key := range keys {
 		labelKeys = append(labelKeys, sanitizeLabelName(key))
 	}
@@ -117,12 +118,12 @@ func awsTagToPrometheusLabels(keys, values []string) (labelKeys, labelValues []s
 	return
 }
 
-func (ec *ec2Collector) collectEC2(ch chan<- prometheus.Metric, ed ec2_dim) {
+func (ec *ec2Collector) collectEC2(ch chan<- prometheus.Metric, rID string, ed ec2Dim) {
 	addGauge := func(desc *prometheus.Desc, v float64, lv ...string) {
-		lv = append([]string{ed.keys, ed.values}, lv...)
+		lv = append([]string{rID, ed.resType}, lv...)
 		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, v, lv...)
 	}
 
-	labelKeys, labelValues := awsTagToPrometheusLabels(ed.keys, ed.values)
+	labelKeys, labelValues := awsEC2TagToPrometheusLabels(ed.tagKeys, ed.tagValues)
 	addGauge(ec2TagsDesc(labelKeys), 1, labelValues...)
 }
