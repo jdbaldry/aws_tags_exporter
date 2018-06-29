@@ -83,10 +83,7 @@ func registerCollectors(r registryCollection) []string {
 	activeCollectors := []string{}
 	for c := range r.Collectors {
 		if f, ok := acollector.AvailableCollectors[c]; ok {
-			if err := f(r.Registry, *r.Region); err != nil {
-				glog.Errorf("%s", err)
-				continue
-			}
+			f(r.Registry, *r.Region)
 			activeCollectors = append(activeCollectors, c)
 		} else {
 			glog.Warningf("No requested collector: %s", c)
@@ -110,7 +107,7 @@ func main() {
 
 	collectorRegistry := registryCollection{
 		Registry:   prometheus.NewRegistry(),
-		Collectors: map[string]struct{}{"elb": {}, "rds": {}, "elastic_service": {}},
+		Collectors: map[string]struct{}{"efs": {}, "elb": {}, "rds": {}, "elbv2": {}},
 		Region:     Region}
 
 	awsTagsMetricsRegistry := prometheus.NewRegistry()
