@@ -51,9 +51,10 @@ func RegisterEC2Collector(registry prometheus.Registerer, region string) {
 
 	lister := ec2Lister(func() (er ec2Resources, err error) {
 		result, err := ec2Session.DescribeTags(nil)
-
+		RequestTotalMetric.With(prometheus.Labels{"service": "ec2", "region": region}).Inc()
 		if err != nil {
-			glog.Errorf("Error collecting: ec2\n", err)
+			RequestErrorTotalMetric.With(prometheus.Labels{"service": "ec2", "region": region}).Inc()
+			return
 		} else {
 			tags := result.Tags
 			er.idMap = make(map[string]*ec2Dim)
