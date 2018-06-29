@@ -1,8 +1,6 @@
 package collector
 
 import (
-	"time"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -47,9 +45,7 @@ func (l ec2Lister) List() (ec2Resources, error) {
 	return l()
 }
 
-func RegisterEC2Collector(registry prometheus.Registerer, region string) error {
-
-	start := time.Now()
+func RegisterEC2Collector(registry prometheus.Registerer, region string) {
 
 	ec2Session := ec2.New(session.New(&aws.Config{Region: aws.String(region)}))
 
@@ -58,7 +54,6 @@ func RegisterEC2Collector(registry prometheus.Registerer, region string) error {
 
 		if err != nil {
 			glog.Errorf("Error collecting: ec2\n", err)
-			//fmt.Println("error")
 		} else {
 			tags := result.Tags
 			er.idMap = make(map[string]*ec2Dim)
@@ -71,16 +66,12 @@ func RegisterEC2Collector(registry prometheus.Registerer, region string) error {
 					er.idMap[*tag.ResourceId] = &ec2Dim{*tag.ResourceType, []string{*tag.Key}, []string{*tag.Value}}
 				}
 			}
-			//fmt.Println(ec2Resources)
 		}
-		elapsed := time.Since(start)
-		glog.V(4).Infof("Collecting EC2 Resources took %s", elapsed)
+
 		return
 
 	})
 	registry.MustRegister(&ec2Collector{store: lister, region: region})
-
-	return nil
 }
 
 func ec2TagsDesc(labelKeys []string) *prometheus.Desc {
