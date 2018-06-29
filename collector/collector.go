@@ -42,6 +42,7 @@ var AvailableCollectors = map[string]func(registry prometheus.Registerer, region
 	"efs": RegisterEFSCollector,
 	"elb": RegisterELBCollector,
 	"rds": RegisterRDSCollector,
+	"ec2": RegisterEC2Collector,
 	//	"elasticsearchservice": RegisterESCollector,
 }
 
