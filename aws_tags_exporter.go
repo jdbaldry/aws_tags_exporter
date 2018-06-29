@@ -107,7 +107,7 @@ func main() {
 
 	collectorRegistry := registryCollection{
 		Registry:   prometheus.NewRegistry(),
-		Collectors: map[string]struct{}{"efs": {}, "elb": {}, "rds": {}},
+		Collectors: map[string]struct{}{"efs": {}, "elb": {}, "rds": {}, "elbv2": {}},
 		Region:     Region}
 
 	awsTagsMetricsRegistry := prometheus.NewRegistry()
