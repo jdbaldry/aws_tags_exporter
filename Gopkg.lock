@@ -25,10 +25,16 @@
     "internal/sdkrand",
     "internal/shareddefaults",
     "private/protocol",
+    "private/protocol/ec2query",
+    "private/protocol/json/jsonutil",
+    "private/protocol/jsonrpc",
     "private/protocol/query",
     "private/protocol/query/queryutil",
     "private/protocol/rest",
+    "private/protocol/restjson",
     "private/protocol/xml/xmlutil",
+    "service/ec2",
+    "service/efs",
     "service/elb",
     "service/rds",
     "service/sts"
@@ -110,6 +116,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d6b3f1c1936c9a84d7fe6edc149c7fc9a32464ce63aaaeb23eb28b1d0338c487"
+  inputs-digest = "3b5a0b22b10a372b19d7d10e737dafd35863bba9e114a2044b8eaf959dd541e0"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -1,8 +1,6 @@
 package collector
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -82,7 +80,6 @@ func RegisterELBV2Collector(registry prometheus.Registerer, region string) {
 			return elbv2List{}, err
 		}
 
-		fmt.Println(len(elbv2s.LoadBalancers))
 		elbv2Arns := []*string{}
 		for _, description := range elbv2s.LoadBalancers {
 			elbv2Arns = append(elbv2Arns, description.LoadBalancerArn)
