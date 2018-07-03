@@ -21,9 +21,29 @@ func (pl promLogger) Println(v ...interface{}) {
 	glog.Error(v)
 }
 
+type collectorSet map[string]struct{}
+
+func (cs *collectorSet) String() string {
+	cSlice := make([]string, 0, len(*cs))
+	for c := range *cs {
+		cSlice = append(cSlice, c)
+	}
+
+	return strings.Join(cSlice, ",")
+}
+
+func (cs *collectorSet) Set(value string) error {
+	cSlice := strings.Split(value, ",")
+	for _, c := range cSlice {
+		(*cs)[c] = struct{}{}
+	}
+
+	return nil
+}
+
 type registryCollection struct {
 	Registry   *prometheus.Registry
-	Collectors map[string]struct{}
+	Collectors collectorSet
 	Region     *string
 }
 
@@ -80,6 +100,11 @@ func metricsServer(registry prometheus.Gatherer, host string, port int) {
 // registerCollectors creates and starts informers and initializes and
 // registers metrics for collection.
 func registerCollectors(r registryCollection) []string {
+
+	if len(r.Collectors) == 0 {
+		glog.Exit("There are no active collectors")
+	}
+
 	activeCollectors := []string{}
 	for c := range r.Collectors {
 		if f, ok := acollector.AvailableCollectors[c]; ok {
@@ -93,22 +118,55 @@ func registerCollectors(r registryCollection) []string {
 	return activeCollectors
 }
 
+func getCollectorsAfterExclude(ex collectorSet) collectorSet {
+	available := make(collectorSet)
+
+	for col := range acollector.AvailableCollectors {
+		available[col] = struct{}{}
+	}
+
+	for c := range ex {
+		delete(available, c)
+	}
+
+	return available
+}
+
 func main() {
 	// Parse the args (expecting -aws.region)
 	TelemetryPort := flag.Int("web.telemetry-port", 60021, "Port number to listen on for telemetry")
 	Port := flag.Int("web.port", 60020, "Port number to listen on for metrics")
 	Host := flag.String("web.host", "0.0.0.0", "Port number to listen on, default is 0.0.0.0")
-	Region := flag.String("aws.region", "", "AWS region to query.")
+	Region := flag.String("aws.region", "", "AWS region to query")
+
+	Includes := make(collectorSet)
+	flag.Var(&Includes, "include", "Comma-seperated list of collectors to include")
+	Excludes := make(collectorSet)
+	flag.Var(&Excludes, "exclude", "Comma-separated list to exclude from all available collectors")
+
 	flag.Parse()
 
 	if *Region == "" {
 		glog.Exit("Please supply a region")
 	}
 
+	if len(Includes) != 0 && len(Excludes) != 0 {
+		glog.Exit("Only specify either included or excluded collectors")
+	}
+
+	var cols collectorSet
+
+	if len(Includes) != 0 {
+		cols = Includes
+	} else {
+		cols = getCollectorsAfterExclude(Excludes)
+	}
+
 	collectorRegistry := registryCollection{
 		Registry:   prometheus.NewRegistry(),
-		Collectors: map[string]struct{}{"ec2": {}, "efs": {}, "elb": {}, "elbv2": {}, "rds": {}},
-		Region:     Region}
+		Collectors: cols,
+		Region:     Region,
+	}
 
 	awsTagsMetricsRegistry := prometheus.NewRegistry()
 	awsTagsMetricsRegistry.MustRegister(acollector.RequestTotalMetric)
