@@ -102,7 +102,7 @@ func main() {
 	flag.Parse()
 
 	if *Region == "" {
-		glog.Fatal("Please supply a region")
+		glog.Exit("Please supply a region")
 	}
 
 	collectorRegistry := registryCollection{
