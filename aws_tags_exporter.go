@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -144,7 +145,16 @@ func main() {
 	Excludes := make(collectorSet)
 	flag.Var(&Excludes, "exclude", "Comma-separated list to exclude from all available collectors")
 
+	List := flag.Bool("list", false, "List all available collectors")
+
 	flag.Parse()
+
+	if *List {
+		cs := getCollectorsAfterExclude(collectorSet{})
+		fmt.Println("Available Collectors: ")
+		fmt.Println(cs.String())
+		return
+	}
 
 	if *Region == "" {
 		glog.Exit("Please supply a region")
