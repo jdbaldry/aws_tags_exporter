@@ -1,8 +1,6 @@
 package collector
 
 import (
-	"fmt"
-
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -15,7 +13,7 @@ import (
 var (
 	descESSTagsName          = prometheus.BuildFQName(namespace, "elasticsearch", "tags")
 	descESSTagsHelp          = "AWS Elastic Search tags converted to prometheus labels"
-	descESSTagsDefaultLabels = []string{"domain", "region"}
+	descESSTagsDefaultLabels = []string{"domain", "domainID", "ARN"}
 
 	descESSTags = prometheus.NewDesc(
 		descESSTagsName,
@@ -83,8 +81,13 @@ func RegisterESSCollector(registry prometheus.Registerer, region string) {
 		dedOuts := []*esservice.DescribeElasticsearchDomainsOutput{out}
 
 		dedErrs := makeConcurrentRequests(dedReqs, "elasticsearchService")
-		if dedErrs == nil {
-			fmt.Println(out)
+		if len(dedErrs) != 0 {
+			for _, errored := range dedErrs {
+				if errored != nil {
+					RequestErrorTotalMetric.With(prometheus.Labels{"service": "esservice", "region": region}).Inc()
+					glog.Error(errored)
+				}
+			}
 		}
 		letReqs := make([]*request.Request, 0, len(dedOuts))
 		letOuts := make([]*esservice.ListTagsOutput, 0, len(dedOuts))
@@ -106,9 +109,9 @@ func RegisterESSCollector(registry prometheus.Registerer, region string) {
 			}
 		}
 		letErrs := makeConcurrentRequests(letReqs, "elasticsearchService")
-		if len(letErrs) > 0 {
-			for i := range letErrs {
-				fmt.Println(letErrs[i])
+		for _, errored := range letErrs {
+			if errored != nil {
+				glog.Error(errored)
 			}
 		}
 		essTags := make([][]*esservice.Tag, 0, len(dedOuts))
@@ -123,25 +126,18 @@ func RegisterESSCollector(registry prometheus.Registerer, region string) {
 		return essList{domains: domainStatuses, tags: essTags}, nil
 	})
 	registry.MustRegister(&essCollector{store: lister, region: region})
+
 }
 
 func essTagsDesc(labelKeys []string) *prometheus.Desc {
 	glog.V(4).Infof("LabelKeys: %s", labelKeys)
-	if len(labelKeys) > 0 {
-		return prometheus.NewDesc(
-			descESSTagsName,
-			descESSTagsHelp,
-			append(descESSTagsDefaultLabels, labelKeys...),
-			nil,
-		)
-	} else {
-		return prometheus.NewDesc(
-			descESSTagsName,
-			descESSTagsHelp,
-			descESSTagsDefaultLabels,
-			nil,
-		)
-	}
+	//if len(labelKeys) > 0 {
+	return prometheus.NewDesc(
+		descESSTagsName,
+		descESSTagsHelp,
+		append(descESSTagsDefaultLabels, labelKeys...),
+		nil,
+	)
 }
 
 // Describe implements the prometheus.Collector interface.
