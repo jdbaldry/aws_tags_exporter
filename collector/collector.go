@@ -39,10 +39,11 @@ var (
 // AvailableCollectors is a map of all implemented collectors with the associated
 // registration function
 var AvailableCollectors = map[string]func(registry prometheus.Registerer, region string){
-	"efs":   RegisterEFSCollector,
-	"elb":   RegisterELBCollector,
-	"rds":   RegisterRDSCollector,
-	"elbv2": RegisterELBV2Collector,
+	"efs":                  RegisterEFSCollector,
+	"elb":                  RegisterELBCollector,
+	"rds":                  RegisterRDSCollector,
+	"elbv2":                RegisterELBV2Collector,
+	"elasticsearchService": RegisterESSCollector,
 }
 
 func makeConcurrentRequests(reqs []*request.Request, service string) []error {

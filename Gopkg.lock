@@ -25,16 +25,22 @@
     "internal/sdkrand",
     "internal/shareddefaults",
     "private/protocol",
+    "private/protocol/json/jsonutil",
+    "private/protocol/jsonrpc",
     "private/protocol/query",
     "private/protocol/query/queryutil",
     "private/protocol/rest",
+    "private/protocol/restjson",
     "private/protocol/xml/xmlutil",
+    "service/efs",
+    "service/elasticsearchservice",
     "service/elb",
+    "service/elbv2",
     "service/rds",
     "service/sts"
   ]
-  revision = "47309c012812d9e9c488a54313e5cdfa7479df93"
-  version = "v1.14.1"
+  revision = "852052a10992d92f68b9a60862a3312292524903"
+  version = "v1.14.17"
 
 [[projects]]
   branch = "master"
@@ -105,11 +111,11 @@
     "nfs",
     "xfs"
   ]
-  revision = "94663424ae5ae9856b40a9f170762b4197024661"
+  revision = "40f013a808ec4fa79def444a1a56de4d1727efcb"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d6b3f1c1936c9a84d7fe6edc149c7fc9a32464ce63aaaeb23eb28b1d0338c487"
+  inputs-digest = "f66788239ac550ea10efc5e85eff32102d6f550cf54bc7c7bce9882831f5b28e"
   solver-name = "gps-cdcl"
   solver-version = 1
