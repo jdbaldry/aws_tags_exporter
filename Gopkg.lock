@@ -25,6 +25,10 @@
     "internal/sdkrand",
     "internal/shareddefaults",
     "private/protocol",
+<<<<<<< HEAD
+=======
+    "private/protocol/ec2query",
+>>>>>>> 5b3c676858e4e81a831009babc5bfe2f36f56985
     "private/protocol/json/jsonutil",
     "private/protocol/jsonrpc",
     "private/protocol/query",
@@ -32,8 +36,13 @@
     "private/protocol/rest",
     "private/protocol/restjson",
     "private/protocol/xml/xmlutil",
+<<<<<<< HEAD
     "service/efs",
     "service/elasticsearchservice",
+=======
+    "service/ec2",
+    "service/efs",
+>>>>>>> 5b3c676858e4e81a831009babc5bfe2f36f56985
     "service/elb",
     "service/elbv2",
     "service/rds",
@@ -116,6 +125,10 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
+<<<<<<< HEAD
   inputs-digest = "f66788239ac550ea10efc5e85eff32102d6f550cf54bc7c7bce9882831f5b28e"
+=======
+  inputs-digest = "3b5a0b22b10a372b19d7d10e737dafd35863bba9e114a2044b8eaf959dd541e0"
+>>>>>>> 5b3c676858e4e81a831009babc5bfe2f36f56985
   solver-name = "gps-cdcl"
   solver-version = 1
