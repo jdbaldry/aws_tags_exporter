@@ -2,7 +2,7 @@ pipeline {
   agent {
     node {
       label 'flint'
-      customWorkspace "/var/lib/jenkins/go/src/github.com/grapeshot/vault_exporter"
+      customWorkspace "/var/lib/jenkins/go/src/github.com/grapeshot/aws_tags_exporter"
     }
   }
   environment {
@@ -82,7 +82,7 @@ pipeline {
 
     failure {
       bitbucketStatusNotify(buildState: 'FAILED' )
-      slackSend  message: 'vault_exporter build error at ' + env.BUILD_URL + ': ' + err.getMessage()
+      slackSend  message: 'aws_tags_exporter build error at ' + env.BUILD_URL + ': ' + err.getMessage()
     }
   }
 }
