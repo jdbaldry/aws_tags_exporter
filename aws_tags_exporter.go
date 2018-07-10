@@ -42,6 +42,8 @@ func (cs *collectorSet) Set(value string) error {
 	return nil
 }
 
+var globalCollectors = collectorSet{"route53": {}}
+
 type registryCollection struct {
 	Registry   *prometheus.Registry
 	Collectors collectorSet
@@ -102,10 +104,6 @@ func metricsServer(registry prometheus.Gatherer, host string, port int) {
 // registers metrics for collection.
 func registerCollectors(r registryCollection) []string {
 
-	if len(r.Collectors) == 0 {
-		glog.Exit("There are no active collectors")
-	}
-
 	activeCollectors := []string{}
 	for c := range r.Collectors {
 		if f, ok := acollector.AvailableCollectors[c]; ok {
@@ -114,6 +112,10 @@ func registerCollectors(r registryCollection) []string {
 		} else {
 			glog.Warningf("No requested collector: %s", c)
 		}
+	}
+
+	if len(activeCollectors) == 0 {
+		glog.Exit("No valid collectors specified")
 	}
 
 	return activeCollectors
@@ -131,6 +133,16 @@ func getCollectorsAfterExclude(ex collectorSet) collectorSet {
 	}
 
 	return available
+}
+
+func allCollectorsAreGlobal(cols collectorSet) bool {
+	for col := range cols {
+		if _, ok := globalCollectors[col]; !ok {
+			return false
+		}
+	}
+
+	return true
 }
 
 func main() {
@@ -156,10 +168,6 @@ func main() {
 		return
 	}
 
-	if *Region == "" {
-		glog.Exit("Please supply a region")
-	}
-
 	if len(Includes) != 0 && len(Excludes) != 0 {
 		glog.Exit("Only specify either included or excluded collectors")
 	}
@@ -170,6 +178,10 @@ func main() {
 		cols = Includes
 	} else {
 		cols = getCollectorsAfterExclude(Excludes)
+	}
+
+	if *Region == "" && !allCollectorsAreGlobal(cols) {
+		glog.Exit("Please supply a region")
 	}
 
 	collectorRegistry := registryCollection{
