@@ -125,6 +125,7 @@ func RegisterRoute53Collector(registry prometheus.Registerer, _ string) {
 			if errs[i] != nil {
 				RequestErrorTotalMetric.With(prometheus.Labels{"service": "route53", "region": "global"}).Inc()
 				glog.Warning(errs[i])
+				continue
 			}
 
 			for _, tagsOut := range outs[i].ResourceTagSets {
@@ -181,10 +182,10 @@ func route53TagsDesc(labelKeys []string) *prometheus.Desc {
 }
 
 func (rc *route53Collector) collectRoute53(ch chan<- prometheus.Metric, key, resourceType string, tags []*route53.Tag) {
-	labelKeys := make([]string, len(tags)+len(descRoute53TagsDefaultLabels))
+	labelKeys := make([]string, 0, len(tags)+len(descRoute53TagsDefaultLabels))
 	labelKeys = append(labelKeys, descRoute53TagsDefaultLabels...)
 
-	labelValues := make([]string, len(tags)+len(descRoute53TagsDefaultLabels))
+	labelValues := make([]string, 0, len(tags)+len(descRoute53TagsDefaultLabels))
 	labelValues = append(labelValues, key, resourceType)
 
 	for _, t := range tags {
