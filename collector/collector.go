@@ -45,8 +45,8 @@ var AvailableCollectors = map[string]func(registry prometheus.Registerer, region
 	"elb":         RegisterELBCollector,
 	"elbv2":       RegisterELBV2Collector,
 	"rds":         RegisterRDSCollector,
-	"elasticsearchService": RegisterESSCollector,
-	"route53":     RegisterRoute53Collector,
+	"elasticsearchservice": RegisterESSCollector,
+	"route53":              RegisterRoute53Collector,
 }
 
 func makeConcurrentRequests(reqs []*request.Request, service string) []error {

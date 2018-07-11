@@ -44,7 +44,7 @@ func (l essLister) List() (essList, error) {
 }
 
 func RegisterESSCollector(registry prometheus.Registerer, region string) {
-	glog.V(4).Infof("Registering collector: elasticsearchService")
+	glog.V(4).Infof("Registering collector: elasticsearchservice")
 	essSession := esservice.New(session.New(&aws.Config{
 		Region: aws.String(region)},
 	))

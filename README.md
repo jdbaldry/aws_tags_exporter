@@ -6,11 +6,11 @@ A Prometheus exporter to expose AWS tags as Prometheus metrics.
 
 The table below lists all existing collectors and the information they provide.
 
-Name    | Description | Default labels (other than tags)
---------|-------------|----------------------------------
-ELB     | Exposes the tags associated with Elastic Load Balancers in the region | load_balancer_name, region
-RDS     | Exposes the tags associated with all AWS RDS instances in the region | name, identifier, availability_zone
-ElasticsearchService | The tags related with Elasticsearch services are exposed | domain, region
+Name    | Description | Default labels (other than tags) | Command Line Flags
+--------|-------------|----------------------------------|--------------------
+ELB     | Exposes the tags associated with Elastic Load Balancers in the region | load_balancer_name, region | elb
+RDS     | Exposes the tags associated with all AWS RDS instances in the region | name, identifier, availability_zone | rds
+ElasticsearchService | The tags related with Elasticsearch services are exposed | domain, region | elasticsearchservice 
 
 ## Building and running
 
