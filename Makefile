@@ -104,6 +104,9 @@ tag-release:
 	git tag $(VERSION)
 .PHONY: tag-release
 
+test: 
+	$(GO) test -short $(test-flags) $(pkgs)
+
 update-dependencies:
 	dep ensure
 .PHONY: update-vendor
