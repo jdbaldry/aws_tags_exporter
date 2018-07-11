@@ -62,7 +62,7 @@ func telemetryServer(registry prometheus.Gatherer, host string, port int) {
 
 	// Add index
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
+		_, err := w.Write([]byte(`<html>
              <head><title>AWS Tags Exporter Server</title></head>
              <body>
              <h1>AWS Tags Exporter Metrics</h1>
@@ -71,6 +71,9 @@ func telemetryServer(registry prometheus.Gatherer, host string, port int) {
 			 </ul>
              </body>
              </html>`))
+		if err != nil {
+			glog.Fatalf("Write failed: %v", err)
+		}
 	})
 	glog.Fatal(http.ListenAndServe(listenAddress, mux))
 }
@@ -87,7 +90,7 @@ func metricsServer(registry prometheus.Gatherer, host string, port int) {
 
 	// Add index
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
+		_, err := w.Write([]byte(`<html>
              <head><title>AWS Tags Server</title></head>
              <body>
              <h1>AWS Tags Metrics</h1>
@@ -96,6 +99,9 @@ func metricsServer(registry prometheus.Gatherer, host string, port int) {
 			 </ul>
              </body>
              </html>`))
+		if err != nil {
+			glog.Fatalf("Write failed: %v", err)
+		}
 	})
 	glog.Fatal(http.ListenAndServe(listenAddress, mux))
 }
