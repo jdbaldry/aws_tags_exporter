@@ -23,17 +23,6 @@ var (
 	)
 )
 
-type esDomainTags struct {
-	DomainName        string
-	DomainARN         string
-	DomainTags        map[string]string
-	DomainDescription esservice.ElasticsearchDomainStatus
-}
-
-type esTagDescription struct {
-	DomainName string
-	Tags       []*esservice.Tag
-}
 type essCollector struct {
 	store  essStore
 	region string
@@ -131,7 +120,7 @@ func RegisterESSCollector(registry prometheus.Registerer, region string) {
 
 func essTagsDesc(labelKeys []string) *prometheus.Desc {
 	glog.V(4).Infof("LabelKeys: %s", labelKeys)
-	//if len(labelKeys) > 0 {
+
 	return prometheus.NewDesc(
 		descESSTagsName,
 		descESSTagsHelp,

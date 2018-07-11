@@ -10,7 +10,7 @@ Name    | Description | Default labels (other than tags)
 --------|-------------|----------------------------------
 ELB     | Exposes the tags associated with Elastic Load Balancers in the region | load_balancer_name, region
 RDS     | Exposes the tags associated with all AWS RDS instances in the region | name, identifier, availability_zone
-elastic_service | The tags related with Elasticsearch services are exposed | domain, region
+ElasticsearchService | The tags related with Elasticsearch services are exposed | domain, region
 
 ## Building and running
 
