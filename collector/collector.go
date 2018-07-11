@@ -4,7 +4,10 @@ import (
 	"regexp"
 	"sync"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -42,6 +45,7 @@ var AvailableCollectors = map[string]func(registry prometheus.Registerer, region
 	"autoscaling": RegisterAutoscalingCollector,
 	"ec2":         RegisterEC2Collector,
 	"efs":         RegisterEFSCollector,
+	"elasticache": RegisterElasticacheCollector,
 	"elb":         RegisterELBCollector,
 	"elbv2":       RegisterELBV2Collector,
 	"rds":         RegisterRDSCollector,
@@ -61,6 +65,19 @@ func makeConcurrentRequests(reqs []*request.Request, service string) []error {
 	}
 	wg.Wait()
 	return errs
+}
+
+func getAccountID() (string, error) {
+	st := sts.New(session.New(&aws.Config{}))
+	out, err := st.GetCallerIdentity(&sts.GetCallerIdentityInput{})
+
+	RequestTotalMetric.With(prometheus.Labels{"service": "sts", "region": "global"}).Inc()
+	if err != nil {
+		RequestErrorTotalMetric.With(prometheus.Labels{"service": "sts", "region": "global"}).Inc()
+		return "", err
+	}
+
+	return *out.Account, nil
 }
 
 func sanitizeLabelName(s string) string {
