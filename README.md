@@ -8,9 +8,14 @@ The table below lists all existing collectors and the information they provide.
 
 Name    | Description | Default labels (other than tags) | Command Line Flags
 --------|-------------|----------------------------------|--------------------
-ELB     | Exposes the tags associated with Elastic Load Balancers in the region | load_balancer_name, region | elb
-RDS     | Exposes the tags associated with all AWS RDS instances in the region | name, identifier, availability_zone | rds
-ElasticsearchService | The tags related with Elasticsearch services are exposed | domain, region | elasticsearchservice 
+Autoscaling     | Exposes the tags associated with AWS Autoscaling groups in the region | autoscaling_group_name, region | autoscaling
+EC2     | Exposes the tags associated with AWS EC2 instances in the region | resource_id, resource_type | ec2
+EFS     | Exposes the tags associated with AWS Filesystems in the region | file_system_name, region | efs
+ElasticsearchService | Exposes the tags associated with AWS Elasticsearch domains in the region | domain, region, ARN | elasticsearchservice 
+ELB     | Exposes the tags associated with AWS Load Balancers in the region | load_balancer_name, region | elb
+ELBv2     | Exposes the tags associated with AWS Application Load Balancers in the region | load_balancer_name, region | elbv2
+RDS     | Exposes the tags associated with AWS RDS instances in the region | name, identifier, availability_zone | rds
+Route53     | Exposes the tags associated with AWS Hosted Zones and DNS Healthchecks | identifier, resource_type | route53
 
 ## Building and running
 
