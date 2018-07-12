@@ -11,7 +11,7 @@ import (
 var (
 	descEC2TagsName          = prometheus.BuildFQName(namespace, "ec2", "tags")
 	descEC2TagsHelp          = "AWS EC2 tags converted to Prometheus labels."
-	descEC2TagsDefaultLabels = []string{"resource_id", "resource_type"}
+	descEC2TagsDefaultLabels = []string{"resource_id", "resource_type", "resource_region"}
 
 	descEC2Tags = prometheus.NewDesc(
 		descEC2TagsName,
