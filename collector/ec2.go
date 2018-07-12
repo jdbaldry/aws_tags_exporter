@@ -112,7 +112,7 @@ func awsEC2TagToPrometheusLabels(keys, values []string) (labelKeys, labelValues 
 
 func (ec *ec2Collector) collectEC2(ch chan<- prometheus.Metric, rID string, ed ec2Dim) {
 	addGauge := func(desc *prometheus.Desc, v float64, lv ...string) {
-		lv = append([]string{rID, ed.resType}, lv...)
+		lv = append([]string{rID, ed.resType, ec.region}, lv...)
 		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, v, lv...)
 	}
 
