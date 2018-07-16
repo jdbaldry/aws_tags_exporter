@@ -33,9 +33,11 @@
     "private/protocol/rest",
     "private/protocol/restjson",
     "private/protocol/xml/xmlutil",
+    "service/dynamodb",
     "service/ec2",
     "service/efs",
     "service/elb",
+    "service/elbv2",
     "service/rds",
     "service/sts"
   ]
@@ -116,6 +118,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3b5a0b22b10a372b19d7d10e737dafd35863bba9e114a2044b8eaf959dd541e0"
+  inputs-digest = "81b27749cf6e8db37e315b6f762ca4fb1c0996c800b22bd6bca0a5a9762e27bf"
   solver-name = "gps-cdcl"
   solver-version = 1
