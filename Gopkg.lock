@@ -5,6 +5,7 @@
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
+    "aws/arn",
     "aws/awserr",
     "aws/awsutil",
     "aws/client",
@@ -32,11 +33,17 @@
     "private/protocol/query/queryutil",
     "private/protocol/rest",
     "private/protocol/restjson",
+    "private/protocol/restxml",
     "private/protocol/xml/xmlutil",
+    "service/autoscaling",
+    "service/dynamodb",
     "service/ec2",
     "service/efs",
+    "service/elasticache",
     "service/elb",
+    "service/elbv2",
     "service/rds",
+    "service/route53",
     "service/sts"
   ]
   revision = "47309c012812d9e9c488a54313e5cdfa7479df93"
@@ -116,6 +123,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3b5a0b22b10a372b19d7d10e737dafd35863bba9e114a2044b8eaf959dd541e0"
+  inputs-digest = "3d4bbb1c905e05e6a118b5ff4ccad8aeec0c27a56d17091959f29cd08a2c1212"
   solver-name = "gps-cdcl"
   solver-version = 1

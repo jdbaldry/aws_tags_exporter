@@ -43,6 +43,7 @@ var (
 // registration function
 var AvailableCollectors = map[string]func(registry prometheus.Registerer, region string){
 	"autoscaling": RegisterAutoscalingCollector,
+	"dynamodb":    RegisterDynamoDBCollector,
 	"ec2":         RegisterEC2Collector,
 	"efs":         RegisterEFSCollector,
 	"elasticache": RegisterElasticacheCollector,
