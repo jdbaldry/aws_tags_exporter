@@ -106,4 +106,6 @@ func (tc *TagsCollector) Register(registry *prometheus.Registry, region string) 
 
 // AvailableCollector maps a string key to each collector (that has been implemented).
 // This is used by the main package to Register the required collectors.
-var AvailableCollectors = map[string]TagsCollector{}
+var AvailableCollectors = map[string]TagsCollector{
+	"autoscaling": autoscalingCollector,
+}
