@@ -2,20 +2,12 @@ package collector
 
 import (
 	"regexp"
-	"sync"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
-	namespace       = "aws"
-	defaultEnabled  = true
-	defaultDisabled = false
+	namespace = "aws"
 )
 
 var (
@@ -39,48 +31,79 @@ var (
 	invalidLabelCharRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 )
 
-// AvailableCollectors is a map of all implemented collectors with the associated
-// registration function
-var AvailableCollectors = map[string]func(registry prometheus.Registerer, region string){
-	"autoscaling": RegisterAutoscalingCollector,
-	"dynamodb":    RegisterDynamoDBCollector,
-	"ec2":         RegisterEC2Collector,
-	"efs":         RegisterEFSCollector,
-	"elasticache": RegisterElasticacheCollector,
-	"elb":         RegisterELBCollector,
-	"elbv2":       RegisterELBV2Collector,
-	"rds":         RegisterRDSCollector,
-	"route53":     RegisterRoute53Collector,
+type tags struct {
+	keys   []string
+	values []string
 }
 
-func makeConcurrentRequests(reqs []*request.Request, service string) []error {
-	var wg sync.WaitGroup
-	var errs = make([]error, len(reqs))
-	glog.V(4).Infof("Collecting %s", service)
-	wg.Add(len(reqs))
-	for i := range reqs {
-		go func(i int, req *request.Request) {
-			defer wg.Done()
-			errs[i] = req.Send()
-		}(i, reqs[i])
+// sanitizeKeys is a helper function to convert label keys which have characters not accepted by prometheus to "_"
+func (ls *tags) sanitizeKeys() {
+	for i := range ls.keys {
+		ls.keys[i] = invalidLabelCharRE.ReplaceAllString(ls.keys[i], "_")
 	}
-	wg.Wait()
-	return errs
 }
 
-func getAccountID() (string, error) {
-	st := sts.New(session.New(&aws.Config{}))
-	out, err := st.GetCallerIdentity(&sts.GetCallerIdentityInput{})
+// sendToPrometheus creates a new metric and sends it to the specified channel
+func (ls *tags) sendToPrometheus(ch chan<- prometheus.Metric, name, help string) {
+	ls.sanitizeKeys()
+	desc := prometheus.NewDesc(
+		name,
+		help,
+		ls.keys,
+		nil,
+	)
 
-	RequestTotalMetric.With(prometheus.Labels{"service": "sts", "region": "global"}).Inc()
+	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, 1, ls.values...)
+}
+
+type tagsLister interface {
+	// Initialise initialises with any state required to collect tags
+	// It is run exactly once, when a TagsCollector is registered.
+	Initialise(region string) error
+	// List is called on an initialised tagsLister to get the tags
+	// It is run every time the tags are collected.
+	List() ([]tags, error)
+}
+
+// TagsCollector is a struct which represents a prometheus Collector
+// It is initialised once per resource type.
+type TagsCollector struct {
+	name          string           // name of collector
+	help          string           // help message of collector
+	defaultLabels []string         // defaultLabels are the required labels that a collector must return
+	defaultDesc   *prometheus.Desc // defaultDesc is the prometheus description (initialised on the first Describe call)
+	lister        tagsLister       // lister is used to get the tags for a particular resource
+}
+
+// Describe is required to implement the prometheus.Collector interface.
+// It also initialises defaultDesc when it is first called.
+func (tc *TagsCollector) Describe(ch chan<- *prometheus.Desc) {
+	if tc.defaultDesc == nil {
+		tc.defaultDesc = prometheus.NewDesc(tc.name, tc.help, tc.defaultLabels, nil)
+	}
+	ch <- tc.defaultDesc
+}
+
+// Collect is required to implement the prometheus.Collector interface.
+func (tc *TagsCollector) Collect(ch chan<- prometheus.Metric) {
+	tagsList, err := tc.lister.List()
 	if err != nil {
-		RequestErrorTotalMetric.With(prometheus.Labels{"service": "sts", "region": "global"}).Inc()
-		return "", err
+		return
 	}
 
-	return *out.Account, nil
+	for _, tags := range tagsList {
+		tags.sendToPrometheus(ch, tc.name, tc.help)
+	}
 }
 
-func sanitizeLabelName(s string) string {
-	return invalidLabelCharRE.ReplaceAllString(s, "_")
+// Register registers the collector in the specified prometheus.Registry to collect tags in the specified region.
+// region can be set to anything if the resource is region agnostic (e.g. Route53).
+func (tc *TagsCollector) Register(registry *prometheus.Registry, region string) (err error) {
+	err = tc.lister.Initialise(region)
+	registry.MustRegister(tc)
+	return
 }
+
+// AvailableCollector maps a string key to each collector (that has been implemented).
+// This is used by the main package to Register the required collectors.
+var AvailableCollectors = map[string]TagsCollector{}

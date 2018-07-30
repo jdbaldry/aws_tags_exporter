@@ -112,8 +112,13 @@ func registerCollectors(r registryCollection) []string {
 
 	activeCollectors := []string{}
 	for c := range r.Collectors {
-		if f, ok := acollector.AvailableCollectors[c]; ok {
-			f(r.Registry, *r.Region)
+		if collector, ok := acollector.AvailableCollectors[c]; ok {
+			err := collector.Register(r.Registry, *r.Region)
+			if err != nil {
+				glog.Warningf("Failed to initialise collector: %s", c)
+				glog.Warning(err)
+				continue
+			}
 			activeCollectors = append(activeCollectors, c)
 		} else {
 			glog.Warningf("No requested collector: %s", c)
