@@ -111,4 +111,5 @@ var AvailableCollectors = map[string]TagsCollector{
 	"ec2":         ec2Collector,
 	"efs":         efsCollector,
 	"elasticache": elasticacheCollector,
+	"elb":         elbCollector,
 }
