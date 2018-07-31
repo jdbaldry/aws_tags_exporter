@@ -108,5 +108,6 @@ func (tc *TagsCollector) Register(registry *prometheus.Registry, region string) 
 // This is used by the main package to Register the required collectors.
 var AvailableCollectors = map[string]TagsCollector{
 	"autoscaling": autoscalingCollector,
+	"ec2":         ec2Collector,
 	"efs":         efsCollector,
 }
