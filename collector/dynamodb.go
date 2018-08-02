@@ -5,135 +5,107 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
 	descDynamoDBTagsName          = prometheus.BuildFQName(namespace, "dynamodb", "tags")
 	descDynamoDBTagsHelp          = "AWS DynamoDB tags converted to Prometheus labels."
-	descDynamoDBTagsDefaultLabels = []string{"name", "identifier", "availability_zone"}
+	descDynamoDBTagsDefaultLabels = []string{"name", "identifier", "region"}
 
 	descDynamoDBTags = prometheus.NewDesc(
 		descDynamoDBTagsName,
 		descDynamoDBTagsHelp,
 		descDynamoDBTagsDefaultLabels, nil,
 	)
+	dynamodbMaxRecords int64 = 100
 )
 
-type dynamodbCollector struct {
-	store  dynamodbStore
-	region string
+var dynamodbCollector = TagsCollector{
+	name:          prometheus.BuildFQName(namespace, "dynamodb", "tags"),
+	help:          "AWS DynamoDB tags converted to Prometheus labels.",
+	defaultLabels: []string{"name", "identifier", "region"},
+	lister:        &dynamodbLister{},
 }
 
-// dynamodbList contains ordered arrays of database instances and tag lists
-type dynamodbItem struct {
-	Table *dynamodb.TableDescription
-	tags  []*dynamodb.Tag
+type dynamodbLister struct {
+	region  string
+	session *dynamodb.DynamoDB
 }
 
-type dynamodbStore interface {
-	List() ([]dynamodbItem, error)
-}
-
-type dynamodbLister func() ([]dynamodbItem, error)
-
-func (l dynamodbLister) List() ([]dynamodbItem, error) {
-	return l()
-}
-
-// RegisterDynamoDBCollector registers a collector of DynamoDB tags.
-// It also creates the lister function that performs tag collection
-func RegisterDynamoDBCollector(registry prometheus.Registerer, region string) {
-	glog.V(4).Infof("Registering collector: dynamodb")
-
-	dynamodbSession := dynamodb.New(session.New(&aws.Config{
-		Region: aws.String(region)},
-	))
-
-	lister := dynamodbLister(func() ([]dynamodbItem, error) {
-
-		dbInput := &dynamodb.ListTablesInput{}
-		dbOut, err := dynamodbSession.ListTables(dbInput)
-
-		RequestTotalMetric.With(prometheus.Labels{"service": "dynamodb", "region": region}).Inc()
-		if err != nil {
-			RequestErrorTotalMetric.With(prometheus.Labels{"service": "dynamodb", "region": region}).Inc()
-			return []dynamodbItem{}, err
-		}
-
-		reqs := make([]*request.Request, 0, len(dbOut.TableNames))
-		outs := make([]*dynamodb.ListTagsOfResourceOutput, 0, len(dbOut.TableNames))
-		tableOuts := make([]*dynamodb.TableDescription, 0, len(dbOut.TableNames))
-		tableDesc := &dynamodb.DescribeTableOutput{}
-		for _, name := range dbOut.TableNames {
-			in := &dynamodb.DescribeTableInput{TableName: name}
-			tableDesc, _ = dynamodbSession.DescribeTable(in)
-			ltInput := &dynamodb.ListTagsOfResourceInput{
-				ResourceArn: tableDesc.Table.TableArn,
-			}
-			req, out := dynamodbSession.ListTagsOfResourceRequest(ltInput)
-			reqs = append(reqs, req)
-			outs = append(outs, out)
-			tableOuts = append(tableOuts, tableDesc.Table)
-		}
-
-		errs := makeConcurrentRequests(reqs, "dynamodb")
-		dynamodbTags := make([]dynamodbItem, 0, len(dbOut.TableNames))
-		for i := range outs {
-			RequestTotalMetric.With(prometheus.Labels{"service": "dynamodb", "region": region}).Inc()
-			if errs[i] != nil {
-				RequestErrorTotalMetric.With(prometheus.Labels{"service": "dynamodb", "region": region}).Inc()
-				continue
-			}
-
-			dynamodbTags = append(dynamodbTags, dynamodbItem{Table: tableOuts[i], tags: outs[i].Tags})
-		}
-
-		return dynamodbTags, nil
-	})
-
-	registry.MustRegister(&dynamodbCollector{store: lister, region: region})
-}
-
-func dynamodbTagsDesc(labelKeys []string) *prometheus.Desc {
-	return prometheus.NewDesc(
-		descDynamoDBTagsName,
-		descDynamoDBTagsHelp,
-		append(descDynamoDBTagsDefaultLabels, labelKeys...),
-		nil,
-	)
-}
-
-// Describe implements the prometheus.Collector interface.
-func (rc *dynamodbCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- descDynamoDBTags
-}
-
-// Collect implements the prometheus.Collector interface.
-func (dc *dynamodbCollector) Collect(ch chan<- prometheus.Metric) {
-	glog.V(4).Infof("Collecting: dynamodb")
-	dynamodbList, err := dc.store.List()
+func (db *dynamodbLister) Initialise(region string) (err error) {
+	db.region = region
+	sess, err := session.NewSession(&aws.Config{Region: &db.region})
 	if err != nil {
-		glog.Errorf("Error collecting: dynamodb\n", err)
+		return
 	}
-
-	for _, table := range dynamodbList {
-		dc.collectDynamoDB(ch, table.Table, table.tags)
-	}
+	db.session = dynamodb.New(sess)
+	return
 }
 
-func (dc *dynamodbCollector) collectDynamoDB(ch chan<- prometheus.Metric, d *dynamodb.TableDescription, ts []*dynamodb.Tag) {
-	addGauge := func(desc *prometheus.Desc, v float64, lv ...string) {
-		lv = append([]string{*d.TableName, *d.TableId, dc.region}, lv...)
-		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, v, lv...)
+func (db *dynamodbLister) List() ([]tags, error) {
+	listDBInput := &dynamodb.ListTablesInput{Limit: &dynamodbMaxRecords}
+	tableList, err := db.session.ListTables(listDBInput)
+	RequestTotalMetric.With(prometheus.Labels{"service": "dynamodb", "region": db.region}).Inc()
+	if err != nil {
+		RequestErrorTotalMetric.With(prometheus.Labels{"service": "dynamodb", "region": db.region}).Inc()
+		return []tags{}, err
 	}
 
-	labelKeys := make([]string, 0, len(ts))
-	labelValues := make([]string, 0, len(ts))
-	for _, t := range ts {
-		labelKeys = append(labelKeys, sanitizeLabelName(*t.Key))
-		labelValues = append(labelValues, *t.Value)
+	descReqs := make([]*request.Request, 0, len(tableList.TableNames))
+	descOuts := make([]*dynamodb.DescribeTableOutput, 0, len(tableList.TableNames))
+	for i := range tableList.TableNames {
+		descReqsIn := &dynamodb.DescribeTableInput{TableName: tableList.TableNames[i]}
+		req, out := db.session.DescribeTableRequest(descReqsIn)
+		descReqs = append(descReqs, req)
+		descOuts = append(descOuts, out)
 	}
-	addGauge(dynamodbTagsDesc(labelKeys), 1, labelValues...)
+
+	errs := makeConcurrentRequests(descReqs, "dynamodb")
+	tagsReqs := make([]*request.Request, 0, len(tableList.TableNames))
+	tagsOuts := make([]*dynamodb.ListTagsOfResourceOutput, 0, len(tableList.TableNames))
+	for i := range descOuts {
+		RequestTotalMetric.With(prometheus.Labels{"service": "dynamodb", "region": db.region}).Inc()
+		if errs[i] != nil {
+			RequestErrorTotalMetric.With(prometheus.Labels{"service": "dynamodb", "region": db.region}).Inc()
+			// Required for indexing logic
+			tagsReqs = append(tagsReqs, &request.Request{})
+			tagsOuts = append(tagsOuts, &dynamodb.ListTagsOfResourceOutput{})
+			continue
+		}
+
+		tagsIn := &dynamodb.ListTagsOfResourceInput{ResourceArn: descOuts[i].Table.TableArn}
+		req, out := db.session.ListTagsOfResourceRequest(tagsIn)
+		tagsReqs = append(tagsReqs, req)
+		tagsOuts = append(tagsOuts, out)
+	}
+
+	errs = makeConcurrentRequests(tagsReqs, "dynamodb")
+
+	tagsList := make([]tags, 0, len(tableList.TableNames))
+	for i := range tagsOuts {
+		RequestTotalMetric.With(prometheus.Labels{"service": "dynamodb", "region": db.region}).Inc()
+		if errs[i] != nil {
+			RequestErrorTotalMetric.With(prometheus.Labels{"service": "dynamodb", "region": db.region}).Inc()
+			// Don't need to maintain size anymore
+			continue
+		}
+
+		ts := tags{
+			make([]string, 0, len(tagsOuts[i].Tags)+len(dynamodbCollector.defaultLabels)),
+			make([]string, 0, len(tagsOuts[i].Tags)+len(dynamodbCollector.defaultLabels)),
+		}
+
+		ts.keys = append(ts.keys, dynamodbCollector.defaultLabels...)
+		ts.values = append(ts.values, *descOuts[i].Table.TableName, *descOuts[i].Table.TableId, db.region)
+
+		for _, t := range tagsOuts[i].Tags {
+			ts.keys = append(ts.keys, *t.Key)
+			ts.values = append(ts.values, *t.Value)
+		}
+
+		tagsList = append(tagsList, ts)
+	}
+
+	return tagsList, nil
 }
