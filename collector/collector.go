@@ -114,4 +114,5 @@ var AvailableCollectors = map[string]TagsCollector{
 	"elb":         elbCollector,
 	"elbv2":       elbv2Collector,
 	"rds":         rdsCollector,
+	"route53":     route53Collector,
 }
