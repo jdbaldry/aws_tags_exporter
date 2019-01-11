@@ -15,13 +15,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// promLogger implements promhttp.Logger
-type promLogger struct{}
-
-func (pl promLogger) Println(v ...interface{}) {
-	glog.Error(v)
-}
-
 type collectorSet map[string]struct{}
 
 func (cs *collectorSet) String() string {
@@ -58,7 +51,7 @@ func telemetryServer(registry prometheus.Gatherer, host string, port int) {
 	mux := http.NewServeMux()
 
 	// Add metricsPath
-	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{ErrorLog: promLogger{}}))
+	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 
 	// Add index
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -86,7 +79,7 @@ func metricsServer(registry prometheus.Gatherer, host string, port int) {
 	mux := http.NewServeMux()
 
 	// Add metricsPath
-	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{ErrorLog: promLogger{}}))
+	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 
 	// Add index
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

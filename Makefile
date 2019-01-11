@@ -20,10 +20,10 @@ GOARCH            ?= amd64
 GITHUB_TOKEN      ?= nil
 
 # Contributing
-## All tools are installed to ~/bin/ (~/go in the case of go) which may need to be added to your $PATH
+## All tools are installed to ~/bin/ (/usr/local/ in the case of go) which may need to be added to your $PATH
 OS                 ?= linux
 ARCH               ?= amd64
-GO_VERSION         := 1.10.3
+GO_VERSION         := 1.11.4
 GORELEASER_VERSION := 0.77.1
 
 build:
@@ -80,7 +80,7 @@ install-tools: install-go install-go-releaser
 
 install-go:
 	wget -nv -P /tmp https://dl.google.com/go/go$(GO_VERSION).$(OS)-$(ARCH).tar.gz
-	tar -C ~/ -xzf /tmp/go$(GO_VERSION).$(OS)-$(ARCH).tar.gz
+	sudo tar -C /usr/local/ -xzf /tmp/go$(GO_VERSION).$(OS)-$(ARCH).tar.gz
 	rm -r /tmp/go$(GO_VERSION).$(OS)-$(ARCH).tar.gz
 .PHONY: install-go
 
@@ -104,9 +104,9 @@ tag-release:
 	git tag $(VERSION)
 .PHONY: tag-release
 
-test: 
+test:
 	$(GO) test -short $(test-flags) $(pkgs)
 
 update-dependencies:
-	dep ensure
-.PHONY: update-vendor
+	go mod download
+.PHONY: update-dependencies
