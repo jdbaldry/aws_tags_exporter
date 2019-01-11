@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -40,5 +41,8 @@ func getAccountID() (string, error) {
 }
 
 func sanitizeLabelName(s string) (string, error) {
+	if s == "" {
+		return s, errors.New("an empty string is not a valid label name")
+	}
 	return invalidLabelCharRE.ReplaceAllString(s, "_"), nil
 }
