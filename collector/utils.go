@@ -39,6 +39,6 @@ func getAccountID() (string, error) {
 	return *out.Account, nil
 }
 
-func sanitizeLabelName(s string) string {
-	return invalidLabelCharRE.ReplaceAllString(s, "_")
+func sanitizeLabelName(s string) (string, error) {
+	return invalidLabelCharRE.ReplaceAllString(s, "_"), nil
 }
