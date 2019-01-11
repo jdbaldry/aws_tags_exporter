@@ -20,11 +20,14 @@ GOARCH            ?= amd64
 GITHUB_TOKEN      ?= nil
 
 # Contributing
-## All tools are installed to ~/bin/ (/usr/local/ in the case of go) which may need to be added to your $PATH
+## All tools are installed to ~/bin (/usr/local in the case of go) which may need to be added to your $PATH
 OS                 ?= linux
 ARCH               ?= amd64
 GO_VERSION         := 1.11.4
 GORELEASER_VERSION := 0.77.1
+
+all: clean build test
+.PHONY: all
 
 build:
 	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o _output/bin/aws_tags_exporter-$(VERSION).$(GOOS)-$(GOARCH)
