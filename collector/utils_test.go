@@ -10,13 +10,20 @@ func TestSanitizeLabelName(t *testing.T) {
 		shouldErr bool
 	}{
 		{"empty string", "", "", true},
+		{"simple string", "simple", "simple", false},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := sanitizeLabelName(tc.input)
+			result, err := sanitizeLabelName(tc.input)
 			if tc.shouldErr && err == nil {
-				t.Errorf("expected returned error to be not nil but it wasn't.")
+				t.Errorf("expected returned error to be not nil but it wasn't")
+			}
+			if !tc.shouldErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if tc.desired != result {
+				t.Errorf("incorrect result; expected %s, got  %s", tc.desired, result)
 			}
 		})
 	}
