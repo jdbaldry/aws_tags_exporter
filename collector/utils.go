@@ -41,10 +41,14 @@ func getAccountID() (string, error) {
 	return *out.Account, nil
 }
 
-func sanitizeLabelName(s string) (string, error) {
+func validateLabelName(s string) error {
 	if s == "" {
-		return s, errors.New("an empty string is not a valid label name")
+		return errors.New("an empty string is not a valid label name")
 	}
+	return nil
+}
+func sanitizeLabelName(s string) (string, error) {
+	err := validateLabelName(s)
 	invalidLabelCharRE := regexp.MustCompile(`[^a-zA-Z0-9_]`)
-	return invalidLabelCharRE.ReplaceAllString(s, "_"), nil
+	return invalidLabelCharRE.ReplaceAllString(s, "_"), err
 }
