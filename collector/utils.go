@@ -48,14 +48,3 @@ func sanitizeLabelName(s string) (string, error) {
 	invalidLabelCharRE := regexp.MustCompile(`[^a-zA-Z0-9_]`)
 	return invalidLabelCharRE.ReplaceAllString(s, "_"), nil
 }
-
-// sanitizeKeys mutates the all the tags keys so that they are valid Prometheus labels.
-func (t *tags) sanitizeKeys() {
-	for i := range t.keys {
-		var err error
-		t.keys[i], err = sanitizeLabelName(t.keys[i])
-		if err != nil {
-			break
-		}
-	}
-}

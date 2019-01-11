@@ -33,17 +33,29 @@ type tags struct {
 	values []string
 }
 
+// sanitizeKeys mutates the all the tags keys so that they are valid Prometheus labels.
+func (t *tags) sanitizeKeys() error {
+	for i := range t.keys {
+		var err error
+		t.keys[i], err = sanitizeLabelName(t.keys[i])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // sendToPrometheus creates a new metric and sends it to the specified channel
-func (ls *tags) sendToPrometheus(ch chan<- prometheus.Metric, name, help string) {
-	ls.sanitizeKeys()
+func (t *tags) sendToPrometheus(ch chan<- prometheus.Metric, name, help string) {
+	t.sanitizeKeys()
 	desc := prometheus.NewDesc(
 		name,
 		help,
-		ls.keys,
+		t.keys,
 		nil,
 	)
 
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, 1, ls.values...)
+	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, 1, t.values...)
 }
 
 type tagsLister interface {
