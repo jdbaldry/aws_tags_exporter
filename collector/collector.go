@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -34,15 +35,17 @@ type tags struct {
 }
 
 // sanitizeKeys mutates the all the tags keys so that they are valid Prometheus labels.
-func (t *tags) sanitizeKeys() error {
-	for i := range t.keys {
-		var err error
+func (t *tags) sanitizeKeys() {
+	var err error
+	for i := 0; i < len(t.keys); i++ {
 		t.keys[i], err = sanitizeLabelName(t.keys[i])
 		if err != nil {
-			return err
+			glog.Infof("Removing empty key: %s", t.keys[i])
+			t.keys = append(t.keys[:i], t.keys[i+1:]...)
+			t.values = append(t.values[:i], t.values[i+1:]...)
+			i++
 		}
 	}
-	return nil
 }
 
 // sendToPrometheus creates a new metric and sends it to the specified channel
