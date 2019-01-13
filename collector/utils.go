@@ -41,14 +41,14 @@ func getAccountID() (string, error) {
 	return *out.Account, nil
 }
 
-func validateLabelName(s string) error {
-	if s == "" {
-		return errors.New("an empty string is not a valid label name")
-	}
-	return nil
-}
+// sanitizeLabelName modifies the provided string to ensure it is a valid Prometheus label.
+// A valid label name must match the regular expression [a-zA-Z_]([a-zA-Z0-9_])*, invalid
+// characters are replaced with underscores.
 func sanitizeLabelName(s string) (string, error) {
-	err := validateLabelName(s)
+	if s == "" {
+		return "", errors.New("an empty string is not a valid label name")
+	}
 	invalidLabelCharRE := regexp.MustCompile(`[^a-zA-Z0-9_]`)
-	return invalidLabelCharRE.ReplaceAllString(s, "_"), err
+	s = invalidLabelCharRE.ReplaceAllString(s, "_")
+	return s, nil
 }

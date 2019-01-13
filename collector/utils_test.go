@@ -12,6 +12,7 @@ func TestSanitizeLabelName(t *testing.T) {
 		{"empty string", "", "", true},
 		{"simple string", "simple", "simple", false},
 		{"string with spaces", "string with spaces", "string_with_spaces", false},
+		{"string without letters", "+++,,,---", "_________", false},
 	}
 
 	for _, tc := range tt {
