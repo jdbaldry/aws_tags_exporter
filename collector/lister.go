@@ -9,4 +9,7 @@ func NewLister() *Lister {
 }
 
 // Lister implements the Collector interface.
-func (l Lister) Describe(ch chan<- *prometheus.Desc) {}
+func (l Lister) Describe(ch chan<- *prometheus.Desc) {
+	// ch <- prometheus.NewDesc("test", "blah", []string{"test"}, nil)
+	close(ch)
+}
