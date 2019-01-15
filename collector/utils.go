@@ -28,6 +28,7 @@ func makeConcurrentRequests(reqs []*request.Request, service string) []error {
 	return errs
 }
 
+// getAccountID returns a string of the AWS Account ID.
 func getAccountID() (string, error) {
 	st := sts.New(session.New(&aws.Config{}))
 	out, err := st.GetCallerIdentity(&sts.GetCallerIdentityInput{})
